@@ -65,7 +65,8 @@ Both are drawn from a triangular distribution. Most notes land near the
 middle, and nothing goes beyond the limits. A note's note-off is delayed
 exactly as much as its note-on, so nothing can hang.
 
-RND is a parameter, so it can be automated, and it is saved with the session.
+RND is on by default. It is a parameter, so it can be automated, and it is
+saved with the session.
 
 ## Settings
 

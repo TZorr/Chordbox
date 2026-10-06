@@ -45,7 +45,7 @@ namespace ChordParams
         and the note is delayed by 0 to humanizeMaxDelayMs - a spread of
         +-8 ms around 8 ms, since a MIDI effect cannot play a note before it
         has received it. Both follow a triangular distribution: bounded, and
-        most notes land near the middle. */
+        most notes land near the middle. On by default (0.6.1). */
     inline constexpr float humanizeVelocity = 0.12f;
     inline constexpr double humanizeMaxDelayMs = 16.0;
 

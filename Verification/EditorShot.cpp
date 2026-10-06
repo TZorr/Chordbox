@@ -190,10 +190,13 @@ namespace
 
     /** A new instance. Most checks want something on the pads: with
         loadPads, the buffer's C major is copied onto them, tile by tile, so
-        pad 1 is C, pad 9 Cmaj7 and so on. */
+        pad 1 is C, pad 9 Cmaj7 and so on. RND, on by default, is switched
+        off: these checks compare notes to the sample, and checkHumanize
+        switches it back on where it is the subject. */
     std::unique_ptr<ChordboxProcessor> fresh (bool loadPads = true)
     {
         auto processor = std::make_unique<ChordboxProcessor>();
+        setParam (*processor, ChordParams::humanize, 0.0f);
         processor->prepareToPlay (48000.0, blockSize);
         run (*processor, {});   // the release that prepareToPlay schedules
 
@@ -427,6 +430,11 @@ namespace
 
     void checkHumanize()
     {
+        {
+            ChordboxProcessor plain;
+            check (plain.parameters.getRawParameterValue (ChordParams::humanize)->load() > 0.5f, "RND is on by default");
+        }
+
         auto processor = fresh();   // 48 kHz: 16 ms is 768 samples
         setParam (*processor, ChordParams::humanize, 1.0f);
         processor->setPad (1, chord (9, "m", 0, -1));   // Am below C: shares C and E with pad 1

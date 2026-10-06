@@ -47,7 +47,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ChordboxProcessor::makeParam
                                                             "Thru", true));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { ChordParams::humanize, 1 },
-                                                            "RND", false));
+                                                            "RND", true));   // on unless switched off: chords sound played, not pasted
 
     return layout;
 }

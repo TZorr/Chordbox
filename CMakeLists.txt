@@ -39,7 +39,8 @@ cmake_minimum_required(VERSION 3.22)
 # 0.4.0: RND, the humanize switch (a new parameter).
 # 0.5.0: four more Suggest styles - Sixths, Jazz, Quartal, Power.
 # 0.6.0: Borrowed and Secondary Dominants; chord tones spelt from the root.
-project(Chordbox VERSION 0.6.0)
+# 0.6.1: RND on by default (a parameter default changed).
+project(Chordbox VERSION 0.6.1)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
