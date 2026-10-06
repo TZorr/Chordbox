@@ -15,8 +15,14 @@
 //  If none of a row's types fits a degree, the pad takes the first chord in
 //  the dictionary that does.
 //
-//  Styles: Triads + 7ths, Sus, Colour, Sixths, Jazz, Quartal, Power. New ones
-//  go at the end - a session stores the style by its position.
+//  Two styles reach outside the scale on purpose, in their second row:
+//  Borrowed puts the parallel key's triads under the key's own (C major over
+//  C minor: F over Fm, Am over Ab), and Secondary Dominants puts under each
+//  triad the dominant seventh that leads to it (A7 under Dm, E7 under Am).
+//
+//  Styles: Triads + 7ths, Sus, Colour, Sixths, Jazz, Quartal, Power,
+//  Borrowed, Secondary Dominants. New ones go at the end - a session stores
+//  the style by its position.
 //
 
 #pragma once
@@ -35,4 +41,8 @@ namespace Theory
     const char* styleName (int style);
 
     std::array<PadChord, numPads> suggest (int keyRoot, int scaleIndex, int style);
+
+    /** The key a scale borrows from: major for a minor key, natural minor for
+        anything else. */
+    int parallelScale (int scaleIndex);
 }

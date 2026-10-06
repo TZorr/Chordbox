@@ -38,7 +38,8 @@ cmake_minimum_required(VERSION 3.22)
 # pads start empty and are filled by dragging; four rows of one height.
 # 0.4.0: RND, the humanize switch (a new parameter).
 # 0.5.0: four more Suggest styles - Sixths, Jazz, Quartal, Power.
-project(Chordbox VERSION 0.5.0)
+# 0.6.0: Borrowed and Secondary Dominants; chord tones spelt from the root.
+project(Chordbox VERSION 0.6.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

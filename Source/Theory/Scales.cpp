@@ -106,8 +106,8 @@ namespace Theory
     Spelling::Spelling (int keyRoot, int scaleIndex)
         : root (wrap (keyRoot))
     {
-        const auto& parent = scale (scale (scaleIndex).spellAs);
-        const auto minorThird = parent.steps[2] == 3;
+        const auto parentIndex = scale (scaleIndex).spellAs;
+        const auto minorThird = scale (parentIndex).steps[2] == 3;
 
         int letter = 0, accidental = 0;
         rootLetter (root, minorThird, letter, accidental);
@@ -115,25 +115,40 @@ namespace Theory
         bool flats = accidental < 0, sharps = accidental > 0;
         bool spelt[12] = {};
 
-        // One letter per degree. An accidental beyond a double is a sign the
-        // scale has no sensible spelling from this root; such notes are left to
-        // the out-of-scale names below.
-        for (size_t degree = 0; degree < parent.steps.size(); ++degree)
+        // One letter per degree, counted from the key's root letter. Notes
+        // already named keep their name; an accidental beyond maxAccidental is
+        // left to the passes after.
+        const auto spellFrom = [&] (int from, int maxAccidental, bool decidesDirection)
         {
-            const auto pitch = wrap (root + parent.steps[degree]);
-            const auto degreeLetter = (letter + (int) degree) % 7;
-            auto offset = wrap (pitch - letterPitch[degreeLetter]);
-            if (offset > 6)
-                offset -= 12;
+            const auto& steps = scale (from).steps;
 
-            if (std::abs (offset) > 2)
-                continue;
+            for (size_t degree = 0; degree < steps.size(); ++degree)
+            {
+                const auto pitch = wrap (root + steps[degree]);
+                const auto degreeLetter = (letter + (int) degree) % 7;
+                auto offset = wrap (pitch - letterPitch[degreeLetter]);
+                if (offset > 6)
+                    offset -= 12;
 
-            names[pitch] = withAccidental (degreeLetter, offset);
-            spelt[pitch] = true;
-            flats  = flats  || offset < 0;
-            sharps = sharps || offset > 0;
-        }
+                if (spelt[pitch] || std::abs (offset) > maxAccidental)
+                    continue;
+
+                names[pitch] = withAccidental (degreeLetter, offset);
+                spelt[pitch] = true;
+
+                if (decidesDirection)
+                {
+                    flats  = flats  || offset < 0;
+                    sharps = sharps || offset > 0;
+                }
+            }
+        };
+
+        // The key's own notes first. Then the notes of its parallel key - C
+        // minor for C major, A major for A minor - which is where the chords a
+        // key borrows come from: Ab and Bb in C major, G# and C# in A minor.
+        spellFrom (parentIndex, 2, true);
+        spellFrom (minorThird ? major : naturalMinor, 1, false);
 
         static const char* const flatNames[12]  = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
         static const char* const sharpNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
@@ -149,6 +164,28 @@ namespace Theory
     std::string Spelling::name (int pitchClass) const
     {
         return names[wrap (pitchClass)];
+    }
+
+    std::string Spelling::above (int rootPitch, int interval, int letterSteps) const
+    {
+        const auto rootName = name (rootPitch);
+        const auto rootLetterIndex = (int) std::string ("CDEFGAB").find (rootName[0]);
+        const auto noteLetter = (rootLetterIndex + letterSteps) % 7;
+        const auto pitch = wrap (rootPitch + interval);
+
+        auto offset = wrap (pitch - letterPitch[noteLetter]);
+        if (offset > 6)
+            offset -= 12;
+
+        return std::abs (offset) > 2 ? name (pitch) : withAccidental (noteLetter, offset);
+    }
+
+    int accidentalOf (const std::string& noteName)
+    {
+        int count = 0;
+        for (size_t i = 1; i < noteName.size(); ++i)
+            count += noteName[i] == '#' ? 1 : (noteName[i] == 'b' ? -1 : 0);
+        return count;
     }
 
     std::string keyName (int pitchClass)

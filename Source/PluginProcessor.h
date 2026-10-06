@@ -122,8 +122,9 @@ public:
     juce::String getPadNumeral (int slot) const;
     /** The MIDI notes the slot sends now. */
     juce::Array<int> getPadNotes (int slot) const;
-    /** "F3 G3 C4 E4", spelt in the current key. */
-    juce::String getNotesText (const juce::Array<int>& notes) const;
+    /** "F3 G3 C4 E4": the notes the slot sends now, spelt from the chord's
+        root (B7 is B D# F# A in any key). */
+    juce::String getPadNotesText (int slot) const;
 
     /** A click on a pad or a tile. Velocity 0..1. */
     void padDown (int slot, float velocity);

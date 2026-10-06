@@ -669,7 +669,7 @@ int main (int argc, char** argv)
     std::printf ("Session round trip...\n");
     checkStateRoundTrip();
 
-    // The panel: C major suggested into the buffer, a progression built on
+    // The panel: C major (Borrowed) suggested into the buffer, a progression built on
     // the pads from it - with the Fmaj7sus2 from the request, held, so the
     // pad and the display's keyboards are lit - and the rest of the pads
     // still empty.
@@ -677,14 +677,20 @@ int main (int argc, char** argv)
         auto processor = fresh (false);
         const auto tile = [] (int letter) { return ChordParams::numPads + letter; };
 
+        // Borrowed: C major's triads over C minor's.
+        for (int style = 0; style < Theory::numStyles(); ++style)
+            if (juce::String (Theory::styleName (style)) == "Borrowed")
+                processor->setStyle (style);
+        processor->suggestTiles();
+
         processor->dropSlot (tile (0), 0);    // C
         processor->dropSlot (tile (5), 1);    // Am
         processor->dropSlot (tile (3), 2);    // F
         processor->dropSlot (tile (4), 3);    // G
         processor->setPad (4, chord (5, "maj7sus2"));
-        processor->dropSlot (tile (9), 8);    // Dm7
-        processor->dropSlot (tile (12), 9);   // G7
-        processor->dropSlot (tile (8), 10);   // Cmaj7
+        processor->dropSlot (tile (13), 8);   // Ab, borrowed
+        processor->dropSlot (tile (14), 9);   // Bb, borrowed
+        processor->dropSlot (tile (11), 10);  // Fm, borrowed
         processor->setSelectedPad (4);
         setParam (*processor, ChordParams::humanize, 1.0f);
 

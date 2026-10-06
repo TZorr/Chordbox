@@ -148,6 +148,52 @@ namespace
         }
 
         {
+            // Borrowed: the parallel key under the key, column by column.
+            const auto numerals = [] (const std::array<PadChord, numPads>& pads, int first, int key, int sc)
+            {
+                std::vector<std::string> parts;
+                for (int pad = first; pad < first + 7; ++pad)
+                    parts.push_back (pads[(size_t) pad].numeral (key, sc));
+                return join (parts);
+            };
+
+            const auto borrowed = suggest (0, major, styleIndex ("Borrowed"));
+            check (row (borrowed, 0, cMajor) == "C Dm Em F G Am Bdim C", "Borrowed in C major: the key on top",
+                   row (borrowed, 0, cMajor));
+            check (row (borrowed, 8, cMajor) == "Cm Ddim Eb Fm Gm Ab Bb Cm", "and C minor's triads under it",
+                   row (borrowed, 8, cMajor));
+            check (numerals (borrowed, 8, 0, major) == "i ii\xc2\xb0 bIII iv v bVI bVII",
+                   "numbered as borrowed chords", numerals (borrowed, 8, 0, major));
+
+            const auto aMinorKey = scaleIndex ("Natural Minor");
+            const Spelling aNatural (9, aMinorKey);
+            const auto fromMajor = suggest (9, aMinorKey, styleIndex ("Borrowed"));
+            check (row (fromMajor, 8, aNatural) == "A Bm C#m D E F#m G#dim A", "A minor borrows from A major",
+                   row (fromMajor, 8, aNatural));
+            check (numerals (fromMajor, 8, 9, aMinorKey) == "I ii iii IV V vi vii\xc2\xb0",
+                   "numbered from A", numerals (fromMajor, 8, 9, aMinorKey));
+
+            // Secondary dominants: each a fourth below its target, so the row climbs.
+            const auto secondary = suggest (0, major, styleIndex ("Secondary Dominants"));
+            check (row (secondary, 8, cMajor) == "G7 A7 B7 C7 D7 E7 F#7 G7", "Secondary Dominants in C major",
+                   row (secondary, 8, cMajor));
+
+            bool climbs = true;
+            for (int pad = 9; pad < 16; ++pad)
+                climbs = climbs && secondary[(size_t) pad].offsets().front() > secondary[(size_t) pad - 1].offsets().front();
+            check (climbs && secondary[8].offsets().front() == -5, "and climb from G below the C", offsets (secondary[8]));
+
+            // The ones outside the key, in every key, every scale: valid pads.
+            for (int sc = 0; sc < numScales(); ++sc)
+                for (int key = 0; key < 12; ++key)
+                    for (auto style : { "Borrowed", "Secondary Dominants" })
+                        for (const auto& pad : suggest (key, sc, styleIndex (style)))
+                            check (pad.octave >= PadChord::minOctave && pad.octave <= PadChord::maxOctave
+                                       && pad.root >= 0 && pad.root < 12,
+                                   std::string (style) + ": pads in range");
+        }
+
+        {
             const auto minor = scaleIndex ("Harmonic Minor");
             const Spelling aMinor (9, minor);
             const auto pads = suggest (9, minor, styleIndex ("Triads + 7ths"));
@@ -158,15 +204,18 @@ namespace
 
         {
             // A pentatonic has no B, so it can have no Bdim; and every
-            // suggested chord, whatever the style, fits the scale.
+            // suggested chord fits the scale - except the second row of the
+            // two styles that leave it on purpose.
             const auto pentatonic = scaleIndex ("Minor Pentatonic");
             for (int s = 0; s < numStyles(); ++s)
             {
+                const auto outside = std::string (styleName (s)) == "Borrowed"
+                                  || std::string (styleName (s)) == "Secondary Dominants";
                 const auto pads = suggest (9, pentatonic, s);
-                for (const auto& pad : pads)
-                    check (fitsScale (pad.root, pad.type, 9, pentatonic),
+                for (int p = 0; p < (outside ? 8 : numPads); ++p)
+                    check (fitsScale (pads[(size_t) p].root, pads[(size_t) p].type, 9, pentatonic),
                            std::string ("A minor pentatonic, style ") + styleName (s) + ": every pad fits",
-                           pad.name (Spelling (9, pentatonic)));
+                           pads[(size_t) p].name (Spelling (9, pentatonic)));
             }
         }
 
@@ -198,6 +247,30 @@ namespace
         check (Spelling (3, scaleIndex ("Major Pentatonic")).name (10) == "Bb", "Eb pentatonic spells as Eb major");
         check (Spelling (0, major).name (10) == "Bb" && Spelling (0, major).name (1) == "C#",
                "C major: Bb and C# outside the scale");
+        check (Spelling (0, major).name (8) == "Ab" && Spelling (0, major).name (3) == "Eb",
+               "C major borrows Ab and Eb from C minor");
+        check (Spelling (9, scaleIndex ("Natural Minor")).name (8) == "G#"
+                   && Spelling (9, scaleIndex ("Natural Minor")).name (1) == "C#",
+               "A minor borrows G# and C# from A major");
+
+        // A chord's own notes are spelt from its root.
+        const auto spelt = [] (const PadChord& chord, const Spelling& spelling)
+        {
+            std::vector<std::string> names;
+            for (const auto& note : chord.speltNotes (spelling))
+                names.push_back (note.name);
+            return join (names);
+        };
+
+        const Spelling cMajor (0, major);
+        check (spelt ({ 11, findChordType ("7"), 0, 0 }, cMajor) == "B D# F# A", "B7 is B D# F# A, not Eb",
+               spelt ({ 11, findChordType ("7"), 0, 0 }, cMajor));
+        check (PadChord { 11, findChordType ("7"), 1, 0 }.name (cMajor) == "B7/D#", "and its first inversion is B7/D#");
+        check (spelt ({ 5, findChordType ("maj7sus2"), 0, 0 }, cMajor) == "F G C E", "Fmaj7sus2 is F G C E");
+        check (spelt ({ 5, findChordType ("maj7#11"), 0, 0 }, cMajor) == "F A C E B", "Fmaj7#11 has B, the sharp eleventh");
+        check (spelt ({ 0, findChordType ("aug"), 0, 0 }, cMajor) == "C E G#", "Caug has G#, not Ab");
+        check (spelt ({ 8, findChordType (""), 0, 0 }, cMajor) == "Ab C Eb", "Ab is Ab C Eb");
+        check (spelt ({ 0, findChordType ("m7b5"), 0, 0 }, cMajor) == "C Eb Gb Bb", "Cm7b5 has Gb, the flat fifth");
     }
 
     void checkVoicing()

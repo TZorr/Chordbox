@@ -119,7 +119,7 @@ void ChordDisplay::paint (juce::Graphics& g)
         auto notesRow = info.removeFromBottom (14.0f);
         g.setFont (Palette::mono (11.0f));
         g.setColour (Palette::displayDim);
-        g.drawText (processor.getNotesText (shownNotes), notesRow, juce::Justification::centredLeft);
+        g.drawText (processor.getPadNotesText (pad), notesRow, juce::Justification::centredLeft);
 
         g.setFont (juce::Font (juce::FontOptions (32.0f, juce::Font::bold)));
         g.setColour (Palette::displayText);

@@ -204,13 +204,27 @@ juce::Array<int> ChordboxProcessor::getPadNotes (int pad) const
     return notes;
 }
 
-juce::String ChordboxProcessor::getNotesText (const juce::Array<int>& notes) const
+juce::String ChordboxProcessor::getPadNotesText (int slot) const
 {
+    if (! isFilled (slot))
+        return {};
+
     const Theory::Spelling spelling (getKey(), getScale());
+    const auto base = getOctaveBase();
     juce::StringArray names;
 
-    for (auto note : notes)
-        names.add (juce::String (spelling.name (note).c_str()) + juce::String (note / 12 - 2));
+    for (const auto& note : getPad (slot).speltNotes (spelling))
+    {
+        const auto midi = base + note.offset;
+
+        if (midi < 0 || midi > 127)
+            continue;
+
+        // The octave number belongs to the letter, not the key: B#2 and C3
+        // are the same key, Cb3 and B2 too (Logic's numbering, C3 = 60).
+        const auto letterMidi = midi - Theory::accidentalOf (note.name);
+        names.add (juce::String (note.name.c_str()) + juce::String ((letterMidi + 24) / 12 - 4));
+    }
 
     return names.joinIntoString (" ");
 }

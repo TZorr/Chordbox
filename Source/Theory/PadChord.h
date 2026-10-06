@@ -37,10 +37,21 @@ namespace Theory
         /** Semitones above the Chord Octave's C, ascending. */
         std::vector<int> offsets() const;
 
+        struct SpeltNote
+        {
+            int offset;
+            std::string name;   // spelt from the chord's root: B7 has D#, not Eb
+        };
+
+        /** offsets(), each with its name. */
+        std::vector<SpeltNote> speltNotes (const Spelling&) const;
+
         /** "Fmaj7sus2", "Am/C". */
         std::string name (const Spelling&) const;
 
-        /** "IV", "ii", "vii°" - empty if the root is not in the key. */
+        /** "IV", "ii", "vii°"; for a root outside the key, counted in
+            semitones from the key's root on a major scale: "bVI", "bVII",
+            "#IV". */
         std::string numeral (int keyRoot, int scaleIndex) const;
 
         int numInversions() const;
