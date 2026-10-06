@@ -129,6 +129,25 @@ namespace
         }
 
         {
+            // The four styles added in 0.5.0, in C major, row by row.
+            const auto rows = [&] (const char* style)
+            {
+                const auto pads = suggest (0, major, styleIndex (style));
+                return row (pads, 0, cMajor) + " / " + row (pads, 8, cMajor);
+            };
+
+            check (rows ("Sixths") == "C6 Dm6 Em F6 G6 Am Bdim C6 / C6/9 Dmadd9 Em7 F6/9 G6/9 Amadd9 Bm7b5 C6/9",
+                   "Sixths in C major", rows ("Sixths"));
+            check (rows ("Jazz") == "Cmaj9 Dm9 Em7 Fmaj9 G9 Am9 Bm7b5 Cmaj9 / C6/9 Dm11 E7sus4 Fmaj7#11 G13 Am11 Bm7b5 C6/9",
+                   "Jazz in C major", rows ("Jazz"));
+            check (rows ("Quartal") == "Csus4 Dquartal Equartal Fsus2 Gsus4 Aquartal Bquartal Csus4"
+                                       " / Cmaj7sus2 D7sus4 E7sus4 Fmaj7sus2 G7sus4 A7sus4 Bquartal Cmaj7sus2",
+                   "Quartal in C major", rows ("Quartal"));
+            check (rows ("Power") == "C5 D5 E5 F5 G5 A5 Bdim C5 / Csus2 Dsus2 Esus4 Fsus2 Gsus2 Asus2 Bdim Csus2",
+                   "Power in C major", rows ("Power"));
+        }
+
+        {
             const auto minor = scaleIndex ("Harmonic Minor");
             const Spelling aMinor (9, minor);
             const auto pads = suggest (9, minor, styleIndex ("Triads + 7ths"));

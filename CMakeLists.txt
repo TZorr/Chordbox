@@ -37,7 +37,8 @@ cmake_minimum_required(VERSION 3.22)
 # display. 0.3.0: the tiles became a buffer of sixteen that Suggest fills;
 # pads start empty and are filled by dragging; four rows of one height.
 # 0.4.0: RND, the humanize switch (a new parameter).
-project(Chordbox VERSION 0.4.0)
+# 0.5.0: four more Suggest styles - Sixths, Jazz, Quartal, Power.
+project(Chordbox VERSION 0.5.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -15,6 +15,9 @@
 //  If none of a row's types fits a degree, the pad takes the first chord in
 //  the dictionary that does.
 //
+//  Styles: Triads + 7ths, Sus, Colour, Sixths, Jazz, Quartal, Power. New ones
+//  go at the end - a session stores the style by its position.
+//
 
 #pragma once
 

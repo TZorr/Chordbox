@@ -72,7 +72,7 @@ RND is a parameter, so it can be automated, and it is saved with the session.
 | | |
 |---|---|
 | **Key**, **Scale** | Major, Natural/Harmonic/Melodic Minor, the modes, Major/Minor Pentatonic. Chord names are spelt in the key (Bb in F major, never A#). |
-| **Style** | What **Suggest** fills the buffer with. Row 1 is degrees I-VII plus the octave, row 2 is the same degrees again. **Triads + 7ths**: C Dm Em F G Am Bdim C over Cmaj7 … Bm7b5. **Sus**: sus2/sus4, then 7sus4/maj7sus2. **Colour**: add9/madd9, then maj9/9/m9/m11 … |
+| **Style** | What **Suggest** fills the buffer with. Row 1 is degrees I-VII plus the octave, row 2 is the same degrees again. **Triads + 7ths**: C Dm Em F G Am Bdim C over Cmaj7 … Bm7b5. **Sus**: sus2/sus4, then 7sus4/maj7sus2. **Colour**: add9/madd9, then maj9/9/m9/m11 … **Sixths**: C6 Dm6 … over C6/9 Dmadd9 … **Jazz**: Cmaj9 Dm9 G9 … over C6/9 Dm11 Fmaj7#11 G13 … **Quartal**: stacked fourths and open sus chords. **Power**: C5 D5 … over sus2/sus4. |
 | **Suggest** | Refills the sixteen buffer tiles. The pads are never touched. |
 | **Trigger** | The note that plays pad 1 (default C1). |
 | **Octave** | The C the chords are built from (default C3). |
