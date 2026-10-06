@@ -46,6 +46,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout ChordboxProcessor::makeParam
     layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { ChordParams::thru, 1 },
                                                             "Thru", true));
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { ChordParams::humanize, 1 },
+                                                            "RND", false));
+
     return layout;
 }
 
@@ -59,6 +62,7 @@ ChordboxProcessor::ChordboxProcessor()
     octaveParam   = parameters.getRawParameterValue (ChordParams::chordOctave);
     velocityParam = parameters.getRawParameterValue (ChordParams::velocity);
     thruParam     = parameters.getRawParameterValue (ChordParams::thru);
+    humanizeParam = parameters.getRawParameterValue (ChordParams::humanize);
 
     // A fresh instance starts with chords to choose from - C major, triads
     // over sevenths - in the buffer, and empty pads to put them on.
@@ -227,33 +231,114 @@ void ChordboxProcessor::padUp (int pad)
 }
 
 //==============================================================================
-void ChordboxProcessor::prepareToPlay (double, int)
+void ChordboxProcessor::prepareToPlay (double newSampleRate, int)
 {
+    sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
+
     // A host may stop calling processBlock with chords still sounding, and
     // prepare again later. Whatever was held then is released on the first
     // block after.
     releasePending = true;
 }
 
-void ChordboxProcessor::padOn (int pad, int velocity, int channel, juce::MidiBuffer& out, int position)
+float ChordboxProcessor::triangular()
+{
+    return random.nextFloat() + random.nextFloat() - 1.0f;
+}
+
+void ChordboxProcessor::schedule (const Scheduled& event)
+{
+    if (numScheduled == scheduleCapacity)
+    {
+        // Full - which takes over a thousand notes inside 16 ms. A note-on can
+        // be lost harmlessly; a note-off cannot, so it takes the place of the
+        // latest pending note-on (whose note-off, when it comes, then finds
+        // nothing to release).
+        if (event.on)
+            return;
+
+        auto victim = numScheduled - 1;
+        while (victim >= 0 && ! scheduled[(size_t) victim].on)
+            --victim;
+
+        if (victim < 0)
+            return;
+
+        std::move (scheduled.begin() + victim + 1, scheduled.begin() + numScheduled, scheduled.begin() + victim);
+        --numScheduled;
+    }
+
+    // Sorted by time, and after everything at the same time: events at one
+    // instant keep the order they were made in (a pad's note-off before the
+    // same pad's next note-on).
+    auto at = numScheduled;
+    while (at > 0 && scheduled[(size_t) at - 1].time > event.time)
+        --at;
+
+    std::move_backward (scheduled.begin() + at, scheduled.begin() + numScheduled, scheduled.begin() + numScheduled + 1);
+    scheduled[(size_t) at] = event;
+    ++numScheduled;
+}
+
+void ChordboxProcessor::emit (juce::MidiBuffer& out, const Scheduled& event)
+{
+    const auto position = (int) juce::jmax ((juce::int64) 0, event.time - now);
+    auto& refs = noteRefs[event.channel - 1][event.note];
+
+    if (event.on)
+    {
+        // A note another pad already holds is struck again rather than left
+        // to ring: playing C and then Am should sound the C of Am.
+        if (refs > 0)
+            out.addEvent (juce::MidiMessage::noteOff (event.channel, event.note), position);
+
+        out.addEvent (juce::MidiMessage::noteOn (event.channel, event.note, (juce::uint8) event.velocity), position);
+        ++refs;
+    }
+    else if (refs > 0 && --refs == 0)
+    {
+        out.addEvent (juce::MidiMessage::noteOff (event.channel, event.note), position);
+    }
+}
+
+void ChordboxProcessor::emitUntil (juce::MidiBuffer& out, juce::int64 limit)
+{
+    int done = 0;
+    while (done < numScheduled && scheduled[(size_t) done].time <= limit)
+        emit (out, scheduled[(size_t) done++]);
+
+    std::move (scheduled.begin() + done, scheduled.begin() + numScheduled, scheduled.begin());
+    numScheduled -= done;
+}
+
+void ChordboxProcessor::abandonSchedule (juce::MidiBuffer& out)
+{
+    for (int i = 0; i < numScheduled; ++i)
+        if (! scheduled[(size_t) i].on)
+            emit (out, { now, scheduled[(size_t) i].channel, scheduled[(size_t) i].note, 0, false });
+
+    numScheduled = 0;
+}
+
+void ChordboxProcessor::padOn (int pad, int velocity, int channel, juce::int64 time)
 {
     if (sounding[(size_t) pad].on)
-        padOff (pad, out, position);
+        padOff (pad, time);
 
     int offsets[Theory::maxPackedNotes];
     const auto count = Theory::unpackNotes (packedPads[(size_t) pad].load(), offsets);
 
     if (count == 0)
         return;   // an empty pad or tile
+
     const auto base = ChordParams::octaveBase ((int) octaveParam->load());
+    const auto humanize = humanizeParam->load() > 0.5f;
+    const auto maxDelay = sampleRate * ChordParams::humanizeMaxDelayMs / 1000.0;
 
     auto& voice = sounding[(size_t) pad];
     voice.on = true;
-    voice.channel = channel;
+    voice.channel = juce::jlimit (1, 16, channel);
     voice.count = 0;
-
-    const auto ch = juce::jlimit (1, 16, channel);
-    const auto vel = (juce::uint8) juce::jlimit (1, 127, velocity);
 
     for (int i = 0; i < count; ++i)
     {
@@ -262,15 +347,21 @@ void ChordboxProcessor::padOn (int pad, int velocity, int channel, juce::MidiBuf
         if (note < 0 || note > 127)
             continue;
 
-        // A note another pad already holds is struck again rather than left
-        // to ring: playing C and then Am should sound the C of Am.
-        auto& refs = noteRefs[ch - 1][note];
-        if (refs > 0)
-            out.addEvent (juce::MidiMessage::noteOff (ch, note), position);
+        auto noteVelocity = velocity;
+        auto delay = 0;
 
-        out.addEvent (juce::MidiMessage::noteOn (ch, note, vel), position);
-        ++refs;
-        voice.notes[voice.count++] = note;
+        if (humanize)
+        {
+            // Each note its own: a chord whose notes all moved together would
+            // still sound like a machine, only a different one.
+            noteVelocity = juce::roundToInt ((float) velocity * (1.0f + ChordParams::humanizeVelocity * triangular()));
+            delay = juce::roundToInt (maxDelay * 0.5 * (1.0 + (double) triangular()));
+        }
+
+        schedule ({ time + delay, voice.channel, note, juce::jlimit (1, 127, noteVelocity), true });
+        voice.notes[voice.count] = note;
+        voice.delays[voice.count] = delay;
+        ++voice.count;
     }
 
     held[(size_t) pad] = true;
@@ -280,32 +371,26 @@ void ChordboxProcessor::padOn (int pad, int velocity, int channel, juce::MidiBuf
     playCount.fetch_add (1);
 }
 
-void ChordboxProcessor::padOff (int pad, juce::MidiBuffer& out, int position)
+void ChordboxProcessor::padOff (int pad, juce::int64 time)
 {
     auto& voice = sounding[(size_t) pad];
 
     if (! voice.on)
         return;
 
-    const auto ch = juce::jlimit (1, 16, voice.channel);
-
+    // Each note-off as late as its note-on was: it can never overtake it.
     for (int i = 0; i < voice.count; ++i)
-    {
-        auto& refs = noteRefs[ch - 1][voice.notes[i]];
-
-        if (refs > 0 && --refs == 0)
-            out.addEvent (juce::MidiMessage::noteOff (ch, voice.notes[i]), position);
-    }
+        schedule ({ time + voice.delays[i], voice.channel, voice.notes[i], 0, false });
 
     voice.on = false;
     voice.count = 0;
     held[(size_t) pad] = false;
 }
 
-void ChordboxProcessor::releaseAll (juce::MidiBuffer& out, int position)
+void ChordboxProcessor::releaseAll (juce::int64 time)
 {
     for (int slot = 0; slot < ChordParams::numSlots; ++slot)
-        padOff (slot, out, position);
+        padOff (slot, time);
 
     std::memset (padFromKey, 0, sizeof (padFromKey));
 }
@@ -317,7 +402,10 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     juce::MidiBuffer out;
 
     if (releasePending.exchange (false))
-        releaseAll (out, 0);
+    {
+        abandonSchedule (out);
+        releaseAll (now);
+    }
 
     if (auto* playHead = getPlayHead())
     {
@@ -326,7 +414,7 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             const auto playing = position->getIsPlaying();
 
             if (wasPlaying && ! playing)
-                releaseAll (out, 0);
+                releaseAll (now);
 
             wasPlaying = playing;
         }
@@ -346,15 +434,17 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
                     continue;
 
                 if (event.on)
-                    padOn (event.pad, juce::roundToInt (event.velocity * 127.0f), 1, out, 0);
+                    padOn (event.pad, juce::roundToInt (event.velocity * 127.0f), 1, now);
                 else
-                    padOff (event.pad, out, 0);
+                    padOff (event.pad, now);
             }
         };
 
         handle (scope.startIndex1, scope.blockSize1);
         handle (scope.startIndex2, scope.blockSize2);
     }
+
+    emitUntil (out, now);
 
     const auto trigger = (int) triggerParam->load();
     const auto fixedVelocity = velocityParam->load() > 0.5f;
@@ -364,6 +454,11 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     {
         const auto message = metadata.getMessage();
         const auto position = metadata.samplePosition;
+        const auto time = now + position;
+
+        // Everything scheduled before this event goes out first; whatever this
+        // event schedules for its own instant goes out right after it.
+        emitUntil (out, time - 1);
 
         if (message.isNoteOn())
         {
@@ -375,18 +470,15 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             {
                 padFromKey[ch][note] = (int8_t) (pad + 1);
                 padOn (pad, fixedVelocity ? ChordParams::fixedVelocity : message.getVelocity(),
-                       message.getChannel(), out, position);
+                       message.getChannel(), time);
             }
             else if (thru)
             {
                 keyPassed[ch][note] = true;
                 out.addEvent (message, position);
             }
-
-            continue;
         }
-
-        if (message.isNoteOff())
+        else if (message.isNoteOff())
         {
             const auto ch = message.getChannel() - 1;
             const auto note = message.getNoteNumber();
@@ -394,22 +486,31 @@ void ChordboxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             if (const auto pad = padFromKey[ch][note] - 1; pad >= 0)
             {
                 padFromKey[ch][note] = 0;
-                padOff (pad, out, position);
+                padOff (pad, time);
             }
             else if (keyPassed[ch][note])
             {
                 keyPassed[ch][note] = false;
                 out.addEvent (message, position);
             }
+        }
+        else
+        {
+            if (message.isAllNotesOff() || message.isAllSoundOff())
+            {
+                releaseAll (time);
+                emitUntil (out, time);
+            }
 
-            continue;
+            out.addEvent (message, position);
         }
 
-        if (message.isAllNotesOff() || message.isAllSoundOff())
-            releaseAll (out, position);
-
-        out.addEvent (message, position);
+        emitUntil (out, time);
     }
+
+    const auto numSamples = juce::jmax (1, buffer.getNumSamples());
+    emitUntil (out, now + numSamples - 1);
+    now += numSamples;
 
     midi.swapWith (out);
 }

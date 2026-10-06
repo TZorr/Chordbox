@@ -36,7 +36,8 @@ cmake_minimum_required(VERSION 3.22)
 # the session), drag and drop between pads and tiles, the scale octave in the
 # display. 0.3.0: the tiles became a buffer of sixteen that Suggest fills;
 # pads start empty and are filled by dragging; four rows of one height.
-project(Chordbox VERSION 0.3.0)
+# 0.4.0: RND, the humanize switch (a new parameter).
+project(Chordbox VERSION 0.4.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

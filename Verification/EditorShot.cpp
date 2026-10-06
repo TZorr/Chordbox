@@ -21,6 +21,9 @@
 //    fills it and never touches the pads; its tiles play on a click but never
 //    from a key, copy onto pads, swap and move among themselves;
 //  - an empty pad plays nothing, and its key does not pass through;
+//  - RND: velocities within +-12 %, delays within 0-16 ms and centred on 8,
+//    each note its own - and still no note-off before its note-on, no note
+//    left hanging, shared notes, transport stop and All Notes Off included;
 //  - the pads, buffer, key, style and selection survive a session round trip,
 //    and sessions from 0.1 and 0.2 load.
 //
@@ -422,6 +425,130 @@ namespace
         check (listener.stillSounding() == 0 && listener.strayOffs == 0, "nothing left sounding after the buffer");
     }
 
+    void checkHumanize()
+    {
+        auto processor = fresh();   // 48 kHz: 16 ms is 768 samples
+        setParam (*processor, ChordParams::humanize, 1.0f);
+        processor->setPad (1, chord (9, "m", 0, -1));   // Am below C: shares C and E with pad 1
+
+        Listener listener;
+        juce::int64 clock = 0;
+        std::map<int, juce::int64> onAt;
+        juce::Array<int> velocities;
+        juce::Array<double> delays;
+        int spreadChords = 0;
+        bool offBeforeOn = false;
+
+        // One block, with every output time made absolute.
+        const auto step = [&] (std::initializer_list<std::pair<int, juce::MidiMessage>> events, juce::int64 played,
+                               juce::Array<juce::int64>* chordDelays)
+        {
+            const auto out = run (*processor, events, &listener);
+
+            for (int i = 0; i < out.messages.size(); ++i)
+            {
+                const auto& m = out.messages[i];
+                const auto at = clock + out.positions[i];
+
+                if (m.isNoteOn())
+                {
+                    velocities.add (m.getVelocity());
+                    if (played >= 0)
+                    {
+                        delays.add ((double) (at - played) * 1000.0 / 48000.0);
+                        if (chordDelays != nullptr)
+                            chordDelays->addIfNotAlreadyThere (at - played);
+                    }
+                    onAt[m.getNoteNumber()] = at;
+                }
+                else if (m.isNoteOff() && onAt.count (m.getNoteNumber()) > 0 && at < onAt[m.getNoteNumber()])
+                {
+                    offBeforeOn = true;
+                }
+            }
+
+            clock += blockSize;
+        };
+
+        for (int hit = 0; hit < 200; ++hit)
+        {
+            juce::Array<juce::int64> chordDelays;
+            const auto played = clock + 100;
+            step ({ { 100, on (36, 100) } }, played, &chordDelays);
+            step ({ { 0, off (36) } }, played, &chordDelays);
+            step ({}, played, &chordDelays);
+            step ({}, played, &chordDelays);
+
+            if (chordDelays.size() > 1)
+                ++spreadChords;
+        }
+
+        int low = 127, high = 0;
+        bool velocitiesInRange = true;
+        for (auto v : velocities)
+        {
+            low = juce::jmin (low, v);
+            high = juce::jmax (high, v);
+            velocitiesInRange = velocitiesInRange && v >= 88 && v <= 112;
+        }
+
+        double sum = 0.0, earliest = 1.0e9, latest = -1.0e9;
+        for (auto d : delays)
+        {
+            sum += d;
+            earliest = juce::jmin (earliest, d);
+            latest = juce::jmax (latest, d);
+        }
+        const auto mean = delays.isEmpty() ? 0.0 : sum / delays.size();
+
+        check (velocities.size() == 600, "RND: every note of every chord plays", juce::String (velocities.size()));
+        check (velocitiesInRange, "RND: velocity stays within 100 +-12 %",
+               juce::String (low) + ".." + juce::String (high));
+        check (low <= 94 && high >= 106, "RND: and uses that range", juce::String (low) + ".." + juce::String (high));
+        check (earliest >= 0.0 && latest <= 16.0 + 0.05, "RND: delays stay within 0-16 ms",
+               juce::String (earliest, 2) + ".." + juce::String (latest, 2));
+        check (std::abs (mean - 8.0) < 1.5, "RND: delays centre on 8 ms", juce::String (mean, 2));
+        check (spreadChords > 150, "RND: each note of a chord gets its own delay", juce::String (spreadChords));
+        check (! offBeforeOn, "RND: no note-off before its note-on");
+        check (listener.stillSounding() == 0 && listener.strayOffs == 0, "RND: nothing left sounding");
+
+        // Shared notes, quickly overlapping, many times.
+        for (int round = 0; round < 50; ++round)
+        {
+            step ({ { 0, on (36) }, { 10, on (37) }, { 20, off (36) }, { 30, off (37) } }, -1, nullptr);
+            step ({}, -1, nullptr);
+            step ({}, -1, nullptr);
+        }
+        check (listener.stillSounding() == 0 && ! offBeforeOn, "RND: shared notes leave nothing hanging");
+
+        // All Notes Off and transport stop while chords are still being delayed.
+        step ({ { 0, on (36) }, { 1, on (38) }, { 2, juce::MidiMessage::allNotesOff (1) } }, -1, nullptr);
+        step ({}, -1, nullptr);
+        step ({}, -1, nullptr);
+        check (listener.stillSounding() == 0, "RND: All Notes Off releases delayed chords");
+        step ({ { 0, off (36) }, { 0, off (38) } }, -1, nullptr);
+
+        FakePlayHead playHead;
+        processor->setPlayHead (&playHead);
+        playHead.playing = true;
+        step ({ { 500, on (40) } }, -1, nullptr);
+        playHead.playing = false;
+        step ({}, -1, nullptr);
+        step ({}, -1, nullptr);
+        step ({}, -1, nullptr);
+        check (listener.stillSounding() == 0, "RND: transport stop releases delayed chords");
+        step ({ { 0, off (40) } }, -1, nullptr);
+        processor->setPlayHead (nullptr);
+
+        // Off again: exact, as before.
+        setParam (*processor, ChordParams::humanize, 0.0f);
+        const auto out = run (*processor, { { 100, on (36, 100) } }, &listener);
+        check (list (out.notesOn (100)) == "60 64 67" && out.messages[0].getVelocity() == 100,
+               "RND off: exact again", out.describe());
+        run (*processor, { { 0, off (36) } }, &listener);
+        check (listener.stillSounding() == 0 && listener.strayOffs == 0, "nothing left sounding after RND");
+    }
+
     void checkStateRoundTrip()
     {
         auto original = fresh();
@@ -430,6 +557,7 @@ namespace
         setParam (*original, ChordParams::chordOctave, 2.0f);
         setParam (*original, ChordParams::triggerNote, 48.0f);
         original->setStyle (2);
+        setParam (*original, ChordParams::humanize, 1.0f);
         original->setPad (3, chord (5, "maj7sus2", 2, -1));
         original->setPad (15, chord (11, "13", 3, 2));
         original->setSelectedPad (9);
@@ -489,9 +617,11 @@ namespace
                    && restored->getTriggerNote() == 48,
                "key, scale, octave and trigger survive");
         check (restored->getStyle() == 2 && restored->getSelectedPad() == 9, "style and selected pad survive");
+        check (restored->parameters.getRawParameterValue (ChordParams::humanize)->load() > 0.5f, "RND survives");
         check (restored->getPadName (3) == "Fmaj7sus2/C", "and the pad reads Fmaj7sus2/C", restored->getPadName (3));
 
-        // And the restored pads play what they say.
+        // And the restored pads play what they say (exactly: RND off for this).
+        setParam (*restored, ChordParams::humanize, 0.0f);
         auto out = run (*restored, { { 0, on (48 + 15) } });
         check (list (out.notesOn()) == list (restored->getPadNotes (15)), "a restored pad plays its notes", out.describe());
     }
@@ -534,6 +664,8 @@ int main (int argc, char** argv)
     checkThruAndPanel();
     std::printf ("Buffer...\n");
     checkBuffer();
+    std::printf ("RND...\n");
+    checkHumanize();
     std::printf ("Session round trip...\n");
     checkStateRoundTrip();
 
@@ -554,6 +686,7 @@ int main (int argc, char** argv)
         processor->dropSlot (tile (12), 9);   // G7
         processor->dropSlot (tile (8), 10);   // Cmaj7
         processor->setSelectedPad (4);
+        setParam (*processor, ChordParams::humanize, 1.0f);
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditorAndMakeActive());
         pump (50);

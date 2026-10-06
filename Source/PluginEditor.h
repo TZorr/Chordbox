@@ -76,5 +76,7 @@ private:
 
     std::vector<std::unique_ptr<ChordPad>> pads, tiles;
 
+    juce::TooltipWindow tooltips { this, 600 };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordboxEditor)
 };

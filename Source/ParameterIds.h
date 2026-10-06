@@ -34,11 +34,20 @@ namespace ChordParams
     inline constexpr const char* chordOctave = "chordOctave";
     inline constexpr const char* velocity    = "velocity";
     inline constexpr const char* thru        = "thru";
+    inline constexpr const char* humanize    = "humanize";
 
     inline constexpr int defaultTrigger = 36;   // C1: pads 1-16 on C1-D#2, as in Kitbox
     inline constexpr int maxTrigger = 127 - (numPads - 1);
     inline constexpr int defaultOctave = 3;     // chords start at C3 (MIDI 60)
     inline constexpr int fixedVelocity = 100;
+
+    /** RND: each chord note's velocity moves by up to this fraction either way,
+        and the note is delayed by 0 to humanizeMaxDelayMs - a spread of
+        +-8 ms around 8 ms, since a MIDI effect cannot play a note before it
+        has received it. Both follow a triangular distribution: bounded, and
+        most notes land near the middle. */
+    inline constexpr float humanizeVelocity = 0.12f;
+    inline constexpr double humanizeMaxDelayMs = 16.0;
 
     /** Logic's numbering: MIDI 60 is C3, MIDI 36 is C1. */
     inline juce::String noteName (int note)

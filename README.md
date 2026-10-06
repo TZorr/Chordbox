@@ -52,6 +52,21 @@ hold only what you put on them.
 - **An empty pad** plays nothing. Its key does not pass through either.
 - The buffer and the pads are saved with the session.
 
+## RND
+
+The small **RND** button in the display, top left beside the scale octave,
+humanizes every chord. It works on each note separately:
+
+- **Velocity** moves by up to ±12 %.
+- **Timing** moves by up to ±8 ms. A MIDI effect cannot play a note before
+  it arrives, so this is a delay of 0–16 ms centred on 8 ms.
+
+Both are drawn from a triangular distribution. Most notes land near the
+middle, and nothing goes beyond the limits. A note's note-off is delayed
+exactly as much as its note-on, so nothing can hang.
+
+RND is a parameter, so it can be automated, and it is saved with the session.
+
 ## Settings
 
 | | |

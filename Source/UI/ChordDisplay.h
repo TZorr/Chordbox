@@ -9,6 +9,9 @@
 //  To the left of the keyboard, set apart, one octave shows the key: the
 //  scale's notes marked and named as the key spells them, the root brightest.
 //
+//  Top left beside that octave sits RND, the humanize switch: a small toggle
+//  bound to the parameter, lit in the accent colour while on.
+//
 //  It follows whichever happened last, a click on a pad or a chord played from
 //  a key, so it reads as "what am I hearing" while playing and "what is on this
 //  pad" while editing.
@@ -16,7 +19,7 @@
 
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 
 #include <optional>
 
@@ -33,8 +36,19 @@ public:
     void refresh();
 
     void paint (juce::Graphics&) override;
+    void resized() override;
 
 private:
+    class RndButton : public juce::Button
+    {
+    public:
+        RndButton() : juce::Button ("RND") { setClickingTogglesState (false); }
+        void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+    };
+
+    /** The info column on the left, and the keyboards' area on the right. */
+    void layout (juce::Rectangle<float>& info, juce::Rectangle<float>& keysArea) const;
+
     void paintScaleOctave (juce::Graphics&, juce::Rectangle<float> keys);
 
     /** Octaves of keys from firstC. marked() gives a key's colour if it is
@@ -48,4 +62,7 @@ private:
     bool shownHeld = false;
     juce::String shownName, shownNumeral;
     juce::Array<int> shownNotes;
+
+    RndButton rnd;
+    std::unique_ptr<juce::ParameterAttachment> rndAttachment;
 };

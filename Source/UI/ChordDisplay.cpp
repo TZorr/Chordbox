@@ -12,6 +12,49 @@
 ChordDisplay::ChordDisplay (ChordboxProcessor& processorToUse)
     : processor (processorToUse)
 {
+    auto& parameter = *processor.parameters.getParameter (ChordParams::humanize);
+
+    rndAttachment = std::make_unique<juce::ParameterAttachment> (parameter, [this] (float value)
+    {
+        rnd.setToggleState (value > 0.5f, juce::dontSendNotification);
+        rnd.repaint();
+    });
+
+    rnd.onClick = [this] { rndAttachment->setValueAsCompleteGesture (rnd.getToggleState() ? 0.0f : 1.0f); };
+    rnd.setTooltip (juce::String (juce::CharPointer_UTF8 ("Humanize: velocity \xc2\xb1" "12 %, timing 0\xe2\x80\x93" "16 ms")));
+    rnd.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    addAndMakeVisible (rnd);
+
+    rndAttachment->sendInitialUpdate();
+}
+
+void ChordDisplay::RndButton::paintButton (juce::Graphics& g, bool highlighted, bool)
+{
+    const auto bounds = getLocalBounds().toFloat();
+    const auto on = getToggleState();
+
+    g.setColour (on ? Palette::accent : (highlighted ? Palette::displayGrid.brighter (0.2f) : Palette::displayGrid));
+    g.fillRoundedRectangle (bounds, 3.0f);
+
+    g.setColour (on ? Palette::display : Palette::displayDim);
+    g.setFont (Palette::mono (9.5f, true));
+    g.drawText ("RND", bounds, juce::Justification::centred);
+}
+
+void ChordDisplay::layout (juce::Rectangle<float>& info, juce::Rectangle<float>& keysArea) const
+{
+    keysArea = getLocalBounds().toFloat().reduced (14.0f, 10.0f);
+    info = keysArea.removeFromLeft (juce::jmin (260.0f, keysArea.getWidth() * 0.35f));
+    keysArea.removeFromLeft (14.0f);
+}
+
+void ChordDisplay::resized()
+{
+    juce::Rectangle<float> info, keysArea;
+    layout (info, keysArea);
+
+    // Top right of the info column: directly left of the scale octave.
+    rnd.setBounds (juce::Rectangle<float> (info.getRight() - 34.0f, info.getY(), 34.0f, 15.0f).toNearestInt());
 }
 
 void ChordDisplay::setPad (int newPad)
@@ -53,9 +96,8 @@ void ChordDisplay::paint (juce::Graphics& g)
     g.setColour (Palette::display);
     g.fillRoundedRectangle (bounds, 6.0f);
 
-    auto area = bounds.reduced (14.0f, 10.0f);
-    auto info = area.removeFromLeft (juce::jmin (260.0f, area.getWidth() * 0.35f));
-    area.removeFromLeft (14.0f);
+    juce::Rectangle<float> info, area;
+    layout (info, area);
 
     // Left: pad or tile, degree, chord name, notes.
     {

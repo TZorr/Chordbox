@@ -23,6 +23,15 @@
 //
 //  Transport stop and All Notes Off release every pad.
 //
+//  Chord notes do not go straight out: they are scheduled, and a scheduler
+//  emits them in time order at the end of each step. That is what makes RND
+//  (humanize) safe. With it on, every note gets its own small delay and
+//  velocity change; a note's note-off inherits the delay of its note-on, so it
+//  can never overtake it, and the note counting above happens at emission,
+//  in time order, so it stays right however the delays fall. With RND off
+//  every delay is zero and the scheduler emits each event in the block and at
+//  the sample it was played.
+//
 //  Above the sixteen pads sits a buffer of sixteen tiles. Suggest fills the
 //  buffer, never the pads; chords reach the pads by being dragged there, so
 //  the pads hold only what was chosen for them. A tile plays when clicked, so
@@ -137,9 +146,25 @@ private:
     void slotsFromTree (const juce::ValueTree&, int first, int count);
 
     // Audio thread
-    void padOn (int pad, int velocity, int channel, juce::MidiBuffer& out, int position);
-    void padOff (int pad, juce::MidiBuffer& out, int position);
-    void releaseAll (juce::MidiBuffer& out, int position);
+    void padOn (int pad, int velocity, int channel, juce::int64 time);
+    void padOff (int pad, juce::int64 time);
+    void releaseAll (juce::int64 time);
+
+    struct Scheduled
+    {
+        juce::int64 time;   // absolute, in samples
+        int channel, note, velocity;
+        bool on;
+    };
+
+    void schedule (const Scheduled&);
+    /** Emits every scheduled event up to and including time `limit`. */
+    void emitUntil (juce::MidiBuffer& out, juce::int64 limit);
+    void emit (juce::MidiBuffer& out, const Scheduled&);
+    /** After a gap in processing: due note-offs out now, pending note-ons dropped. */
+    void abandonSchedule (juce::MidiBuffer& out);
+    /** -1..1, most values near 0, none beyond. */
+    float triangular();
 
     juce::CriticalSection padLock;
     std::array<Theory::PadChord, ChordParams::numSlots> pads;
@@ -159,7 +184,15 @@ private:
         int channel = 1;
         int count = 0;
         int notes[Theory::maxPackedNotes] {};
+        int delays[Theory::maxPackedNotes] {};   // samples, from RND; the note-off reuses it
     };
+
+    static constexpr int scheduleCapacity = 1024;
+    std::array<Scheduled, scheduleCapacity> scheduled {};
+    int numScheduled = 0;
+    juce::int64 now = 0;           // sample time at the start of the current block
+    double sampleRate = 44100.0;
+    juce::Random random;
 
     std::array<Sounding, ChordParams::numSlots> sounding {};
     int noteRefs[16][128] {};      // per channel and note: how many pads hold it
@@ -179,6 +212,7 @@ private:
     std::atomic<float>* octaveParam = nullptr;
     std::atomic<float>* velocityParam = nullptr;
     std::atomic<float>* thruParam = nullptr;
+    std::atomic<float>* humanizeParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordboxProcessor)
 };
