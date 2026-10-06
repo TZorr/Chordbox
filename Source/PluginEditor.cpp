@@ -53,7 +53,7 @@ ChordboxEditor::ChordboxEditor (ChordboxProcessor& p)
     };
     style.onPick = [this] (int itemId) { chordbox.setStyle (itemId - 1); };
 
-    suggestButton.onClick = [this] { chordbox.suggestPads(); };
+    suggestButton.onClick = [this] { chordbox.suggestTiles(); };
 
     for (auto* selector : { &key, &scale, &style, &trigger, &octave, &velocity, &thru })
     {
@@ -182,23 +182,26 @@ void ChordboxEditor::resized()
 
     area.removeFromTop (16);
 
-    constexpr int padGap = 8;
-    constexpr int padHeight = 92;
+    // Four rows of eight, one height: the buffer (A-H, I-P), a wider gap,
+    // then the pads (1-8, 9-16).
+    constexpr int padGap = 6;
+    constexpr int groupGap = 12;
+    constexpr int padHeight = 54;
     const auto padWidth = (area.getWidth() - 7 * padGap) / 8;
 
-    // Tiles: one row of eight, in the pads' columns.
+    for (int r = 0; r < 2; ++r)
     {
-        auto line = area.removeFromTop (40);
+        auto line = area.removeFromTop (padHeight);
 
         for (int column = 0; column < 8; ++column)
         {
             const auto width = column == 7 ? line.getWidth() : padWidth;
-            tiles[(size_t) column]->setBounds (line.removeFromLeft (width));
+            tiles[(size_t) (r * 8 + column)]->setBounds (line.removeFromLeft (width));
             line.removeFromLeft (padGap);
         }
-    }
 
-    area.removeFromTop (10);
+        area.removeFromTop (r == 0 ? padGap : groupGap);
+    }
 
     // Pads: two rows of eight, 1-8 on top.
     for (int r = 0; r < 2; ++r)

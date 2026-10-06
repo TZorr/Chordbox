@@ -14,6 +14,7 @@ namespace
     // Menu item ids. Chords: 1 + root * 100 + type, so 1..1200.
     constexpr int inversionBase = 5000;
     constexpr int octaveBase = 6000;
+    constexpr int clearId = 7000;
 
     int chordId (int root, int type) { return 1 + root * 100 + type; }
 
@@ -106,112 +107,91 @@ void ChordPad::updateFlash()
 
 void ChordPad::paint (juce::Graphics& g)
 {
-    if (tile)
-    {
-        paintTile (g);
-        return;
-    }
-
+    // Pads and tiles share one compact layout, so the four rows line up: a
+    // small top line (number or letter, trigger note), then the chord's name
+    // with its degree beside it. What tells them apart is colour and size -
+    // the pads dark with their group colour and large names, the buffer grey
+    // and quieter.
     const auto bounds = getLocalBounds().toFloat().reduced (1.0f);
-    const auto colour = Palette::padColour (index);
-
-    auto fill = isMouseOver() ? Palette::padHover : Palette::pad;
-    fill = fill.interpolatedWith (colour, flash * 0.85f);
-
-    g.setColour (fill);
-    g.fillRoundedRectangle (bounds, 6.0f);
-
-    {
-        juce::Graphics::ScopedSaveState state (g);
-        juce::Path clip;
-        clip.addRoundedRectangle (bounds, 6.0f);
-        g.reduceClipRegion (clip);
-        g.setColour (colour);
-        g.fillRect (bounds.withHeight (4.0f));
-    }
-
-    if (selected || dropHover)
-    {
-        g.setColour (dropHover ? Palette::padText : Palette::accent);
-        g.drawRoundedRectangle (bounds.reduced (1.0f), 6.0f, 2.0f);
-    }
-
-    auto text = bounds.reduced (10.0f, 8.0f);
-    text.removeFromTop (4.0f);
-
+    const auto filled = shownName.isNotEmpty();
     const auto lit = flash > 0.45f;
+    const auto groupColour = Palette::padColour (index);
 
-    g.setFont (Palette::mono (11.0f, true));
-    g.setColour (lit ? Palette::pad : Palette::padTextDim);
-    auto topRow = text.removeFromTop (14.0f);
-    g.drawText (juce::String (index + 1).paddedLeft ('0', 2), topRow, juce::Justification::topLeft);
+    auto text = bounds.reduced (9.0f, 0.0f);
 
-    g.setFont (Palette::mono (10.5f));
-    g.drawText (shownTrigger, topRow, juce::Justification::topRight);
-
-    auto numeralRow = text.removeFromBottom (14.0f);
-    g.setFont (Palette::label (10.5f));
-    g.setColour (lit ? Palette::pad : colour.withAlpha (0.9f));
-    g.drawText (shownNumeral, numeralRow, juce::Justification::bottomLeft);
-
-    g.setFont (juce::Font (juce::FontOptions (21.0f, juce::Font::bold)));
-    g.setColour (lit ? Palette::pad : Palette::padText);
-    g.drawFittedText (shownName, text.toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
-}
-
-void ChordPad::paintTile (juce::Graphics& g)
-{
-    // A tile is a pad's smaller, quieter cousin: no group colour, no trigger
-    // note - only a letter, the chord and its degree. An empty one is an
-    // outline that says what it is for.
-    const auto bounds = getLocalBounds().toFloat().reduced (1.0f);
-    const auto empty = shownName.isEmpty();
-
-    auto text = bounds.reduced (10.0f, 0.0f);
-
-    if (empty)
+    if (! filled)
     {
         juce::Path outline;
         outline.addRoundedRectangle (bounds.reduced (0.5f), 5.0f);
         const float dashes[] = { 4.0f, 3.0f };
         juce::PathStrokeType (1.0f).createDashedStroke (outline, outline, dashes, 2);
 
-        g.setColour (dropHover ? Palette::ink : Palette::sectionLine);
+        g.setColour (dropHover ? Palette::ink : (tile ? Palette::sectionLine : Palette::inkDim.withAlpha (0.6f)));
         g.fillPath (outline);
+    }
+    else
+    {
+        auto fill = tile ? (isMouseOver() ? Palette::buttonHover : Palette::button)
+                         : (isMouseOver() ? Palette::padHover : Palette::pad);
+        fill = fill.interpolatedWith (tile ? Palette::accent : groupColour, flash * 0.85f);
 
-        g.setFont (Palette::label (9.5f));
-        g.setColour (Palette::inkDim);
-        g.drawText (tileLabel (index), text.removeFromLeft (16.0f), juce::Justification::centredLeft);
-        text.removeFromRight (16.0f);
-        g.drawFittedText ("DROP A PAD", text.toNearestInt(), juce::Justification::centred, 1, 0.8f);
-        return;
+        g.setColour (fill);
+        g.fillRoundedRectangle (bounds, 5.0f);
+
+        if (! tile)
+        {
+            juce::Graphics::ScopedSaveState state (g);
+            juce::Path clip;
+            clip.addRoundedRectangle (bounds, 5.0f);
+            g.reduceClipRegion (clip);
+            g.setColour (groupColour);
+            g.fillRect (bounds.withHeight (3.0f));
+        }
     }
 
-    auto fill = isMouseOver() ? Palette::padHover : Palette::pad;
-    fill = fill.interpolatedWith (Palette::accent, flash * 0.85f);
-
-    g.setColour (fill);
-    g.fillRoundedRectangle (bounds, 5.0f);
-
-    if (dropHover)
+    if (selected || (dropHover && filled))
     {
-        g.setColour (Palette::padText);
+        g.setColour (dropHover ? (tile ? Palette::ink : Palette::padText) : Palette::accent);
         g.drawRoundedRectangle (bounds.reduced (1.0f), 5.0f, 2.0f);
     }
 
-    const auto lit = flash > 0.45f;
+    // Top line.
+    text.removeFromTop (6.0f);
+    auto topRow = text.removeFromTop (12.0f);
 
-    g.setFont (Palette::mono (10.5f, true));
-    g.setColour (lit ? Palette::pad : Palette::padTextDim);
-    g.drawText (tileLabel (index), text.removeFromLeft (16.0f), juce::Justification::centredLeft);
+    const auto dim = ! filled ? Palette::inkDim
+                              : (lit ? Palette::pad : (tile ? Palette::inkDim : Palette::padTextDim));
 
-    g.setFont (Palette::label (10.0f));
-    g.setColour (lit ? Palette::pad : Palette::accent.withAlpha (0.9f));
-    g.drawText (shownNumeral, text.removeFromRight (34.0f), juce::Justification::centredRight);
+    g.setColour (dim);
+    g.setFont (Palette::mono (9.5f, true));
+    g.drawText (tile ? tileLabel (index) : juce::String (index + 1).paddedLeft ('0', 2), topRow,
+                juce::Justification::centredLeft);
 
-    g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-    g.setColour (lit ? Palette::pad : Palette::padText);
-    g.drawFittedText (shownName, text.toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
+    if (! tile)
+    {
+        g.setFont (Palette::mono (9.5f));
+        g.drawText (shownTrigger, topRow, juce::Justification::centredRight);
+    }
+
+    // Name and degree.
+    auto nameRow = text.withTrimmedBottom (3.0f);
+
+    if (! filled)
+    {
+        g.setFont (Palette::label (9.0f));
+        g.setColour (Palette::inkDim);
+        g.drawFittedText (tile ? "EMPTY" : "DROP A CHORD", nameRow.toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
+        return;
+    }
+
+    g.setFont (Palette::label (tile ? 9.5f : 10.5f));
+    g.setColour (lit ? Palette::pad : (tile ? Palette::inkDim : groupColour.withAlpha (0.9f)));
+    g.drawText (shownNumeral, nameRow, juce::Justification::centredRight);
+    nameRow.removeFromRight (juce::GlyphArrangement::getStringWidth (Palette::label (10.5f), shownNumeral) + 6.0f);
+
+    g.setFont (juce::Font (juce::FontOptions (tile ? 13.0f : 17.0f, juce::Font::bold)));
+    g.setColour (lit ? Palette::pad : (tile ? Palette::ink : Palette::padText));
+    g.drawFittedText (shownName, nameRow.toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
 }
 
 void ChordPad::mouseDown (const juce::MouseEvent& event)
@@ -305,7 +285,7 @@ void ChordPad::showTileMenu()
                         [safe = juce::Component::SafePointer<ChordPad> (this)] (int result)
     {
         if (safe != nullptr && result == 1)
-            safe->processor.clearTile (safe->index);
+            safe->processor.clearSlot (safe->index);
     });
 }
 
@@ -313,6 +293,8 @@ void ChordPad::showMenu()
 {
     using namespace Theory;
 
+    // An empty pad has no chord to tick, invert or move; picking one fills it.
+    const auto filled = processor.isFilled (index);
     const auto current = processor.getPad (index);
     const auto key = processor.getKey();
     const auto scaleIndex = processor.getScale();
@@ -340,7 +322,7 @@ void ChordPad::showMenu()
 
                 PadChord chord { root, type, 0, 0 };
                 menu.addItem (chordId (root, type), fromUtf8 (chord.name (spelling)), true,
-                              current.root == root && current.type == type);
+                              filled && current.root == root && current.type == type);
             }
         }
     };
@@ -364,7 +346,7 @@ void ChordPad::showMenu()
         const PadChord probe { root, 0, 0, 0 };
         const auto title = fromUtf8 (spelling.name (root)) + "    " + fromUtf8 (probe.numeral (key, scaleIndex));
 
-        menu.addSubMenu (title, chords, true, nullptr, current.root == root);
+        menu.addSubMenu (title, chords, true, nullptr, filled && current.root == root);
     }
 
     // Everything: twelve roots, each split by family.
@@ -373,7 +355,7 @@ void ChordPad::showMenu()
     {
         juce::PopupMenu chords;
         addChords (chords, root, false);
-        all.addSubMenu (fromUtf8 (spelling.name (root)), chords, true, nullptr, current.root == root);
+        all.addSubMenu (fromUtf8 (spelling.name (root)), chords, true, nullptr, filled && current.root == root);
     }
 
     menu.addSeparator();
@@ -396,8 +378,10 @@ void ChordPad::showMenu()
                          true, current.octave == o);
 
     menu.addSeparator();
-    menu.addSubMenu ("Inversion", inversions);
-    menu.addSubMenu ("Octave", octaves);
+    menu.addSubMenu ("Inversion", inversions, filled);
+    menu.addSubMenu ("Octave", octaves, filled);
+    menu.addSeparator();
+    menu.addItem (clearId, "Clear Pad", filled);
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
                         [safe = juce::Component::SafePointer<ChordPad> (this)] (int result)
@@ -405,7 +389,14 @@ void ChordPad::showMenu()
         if (safe == nullptr || result == 0)
             return;
 
-        auto chord = safe->processor.getPad (safe->index);
+        if (result == clearId)
+        {
+            safe->processor.clearSlot (safe->index);
+            return;
+        }
+
+        auto chord = safe->processor.isFilled (safe->index) ? safe->processor.getPad (safe->index)
+                                                             : PadChord {};
 
         if (result >= octaveBase)
         {

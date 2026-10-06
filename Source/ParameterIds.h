@@ -19,10 +19,11 @@ namespace ChordParams
 {
     inline constexpr int numPads = 16;
 
-    /** The tiles above the pads: a shelf to park chords on and drag back onto
-        pads. They are played by clicking only, never by a key, and come after
-        the pads wherever both are counted ("slots"). */
-    inline constexpr int numTiles = 8;
+    /** The buffer above the pads: sixteen tiles that Suggest fills and that
+        chords are dragged from onto the pads. They are played by clicking
+        only, never by a key, and come after the pads wherever both are
+        counted ("slots"). */
+    inline constexpr int numTiles = 16;
     inline constexpr int numSlots = numPads + numTiles;
 
     inline bool isTile (int slot) { return slot >= numPads; }

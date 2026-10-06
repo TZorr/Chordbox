@@ -6,16 +6,19 @@
 //
 //      CHORDBOX   [ display: chord name, notes, keyboard                    ]
 //      SCALE  Key | Scale | Style | Suggest     PLAY  Trigger | Octave | Velocity | Thru
-//      [A ][B ][C ][D ][E ][F ][G ][H ]            <- tiles: a shelf for chords
-//      [ 1][ 2][ 3][ 4][ 5][ 6][ 7][ 8]
+//      [A ][B ][C ][D ][E ][F ][G ][H ]            <- buffer: what Suggest fills,
+//      [I ][J ][K ][L ][M ][N ][O ][P ]               grey, smaller type
+//      [ 1][ 2][ 3][ 4][ 5][ 6][ 7][ 8]            <- pads: what the keys play
 //      [ 9][10][11][12][13][14][15][16]
 //
 //  Kitbox's layout, with the knob rows replaced by one row of selectors: every
-//  setting here is a choice from a list. Suggest refills all sixteen pads from
-//  Key, Scale and Style; changing Key or Scale alone does not, so a set of
-//  hand-picked chords is never thrown away by a stray click - and a chord
-//  worth keeping across a Suggest can be parked on a tile first. The editor is
-//  the drag container for moving chords between pads and tiles.
+//  setting here is a choice from a list. Suggest fills the sixteen buffer
+//  tiles from Key, Scale and Style, and chords are dragged from there onto the
+//  pads - so the pads hold only what was chosen for them, and no Suggest ever
+//  overwrites them. The editor is the drag container for that.
+//
+//  All four rows are one height: the pads gave up height to make room for the
+//  buffer, and the window kept its size.
 //
 //  The pads sit a clear 30 points above the bottom edge, as in Kitbox: Logic
 //  swallows clicks in roughly the last 20 points of a plugin window.

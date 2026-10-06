@@ -60,7 +60,7 @@ void ChordDisplay::paint (juce::Graphics& g)
     // Left: pad or tile, degree, chord name, notes.
     {
         const auto tile = ChordParams::isTile (pad);
-        const auto label = tile ? "TILE " + ChordPad::tileLabel (pad)
+        const auto label = tile ? "BUFFER " + ChordPad::tileLabel (pad)
                                 : "PAD " + juce::String (pad + 1).paddedLeft ('0', 2);
 
         auto top = info.removeFromTop (14.0f);
@@ -71,7 +71,7 @@ void ChordDisplay::paint (juce::Graphics& g)
         if (shownNumeral.isNotEmpty())
         {
             g.setColour (tile ? Palette::accent : Palette::padColour (pad));
-            g.drawText (shownNumeral, top.withTrimmedLeft (60.0f), juce::Justification::centredLeft);
+            g.drawText (shownNumeral, top.withTrimmedLeft (72.0f), juce::Justification::centredLeft);
         }
 
         auto notesRow = info.removeFromBottom (14.0f);

@@ -34,8 +34,9 @@ cmake_minimum_required(VERSION 3.22)
 # Bump with every change to the parameter list: Logic does not re-validate an
 # AU whose version is unchanged. 0.2.0: eight tiles above the pads (saved in
 # the session), drag and drop between pads and tiles, the scale octave in the
-# display.
-project(Chordbox VERSION 0.2.0)
+# display. 0.3.0: the tiles became a buffer of sixteen that Suggest fills;
+# pads start empty and are filled by dragging; four rows of one height.
+project(Chordbox VERSION 0.3.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

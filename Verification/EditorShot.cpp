@@ -17,9 +17,12 @@
 //  - Thru passes other notes, and still passes a note-off whose note-on it
 //    passed after Thru has been switched off;
 //  - clicks on the panel play and release;
-//  - tiles: filled by dropping a pad, played by a click but never by a key,
-//    copied onto pads, swapped and moved among themselves, kept by Suggest;
-//  - the pads, tiles, key, style and selection survive a session round trip.
+//  - the buffer: a new instance has it filled and the pads empty; Suggest
+//    fills it and never touches the pads; its tiles play on a click but never
+//    from a key, copy onto pads, swap and move among themselves;
+//  - an empty pad plays nothing, and its key does not pass through;
+//  - the pads, buffer, key, style and selection survive a session round trip,
+//    and sessions from 0.1 and 0.2 load.
 //
 //  The render is the other half: look at the PNG after every layout change.
 //
@@ -182,11 +185,19 @@ namespace
         return { root, Theory::findChordType (symbol), inversion, octave };
     }
 
-    std::unique_ptr<ChordboxProcessor> fresh()
+    /** A new instance. Most checks want something on the pads: with
+        loadPads, the buffer's C major is copied onto them, tile by tile, so
+        pad 1 is C, pad 9 Cmaj7 and so on. */
+    std::unique_ptr<ChordboxProcessor> fresh (bool loadPads = true)
     {
         auto processor = std::make_unique<ChordboxProcessor>();
         processor->prepareToPlay (48000.0, blockSize);
         run (*processor, {});   // the release that prepareToPlay schedules
+
+        if (loadPads)
+            for (int pad = 0; pad < ChordParams::numPads; ++pad)
+                processor->dropSlot (ChordParams::numPads + pad, pad);
+
         return processor;
     }
 
@@ -315,13 +326,46 @@ namespace
         check (listener.stillSounding() == 0, "nothing left sounding after the panel");
     }
 
-    void checkTiles()
+    void checkBuffer()
     {
-        auto processor = fresh();
-        Listener listener;
         constexpr int tileA = ChordParams::numPads, tileB = ChordParams::numPads + 1;
+        Listener listener;
 
-        check (! processor->isFilled (tileA) && processor->getPadName (tileA).isEmpty(), "a tile starts empty");
+        // A new instance: C major in the buffer, nothing on the pads.
+        {
+            auto blank = fresh (false);
+
+            bool padsEmpty = true;
+            for (int pad = 0; pad < ChordParams::numPads; ++pad)
+                padsEmpty = padsEmpty && ! blank->isFilled (pad);
+
+            check (padsEmpty, "a new instance starts with empty pads");
+            check (blank->getPadName (tileA) == "C" && blank->getPadName (tileA + 8) == "Cmaj7"
+                       && blank->getPadName (tileA + 15) == "Cmaj7",
+                   "and C major in the buffer");
+
+            auto out = run (*blank, { { 0, on (36) }, { 10, off (36) } }, &listener);
+            check (out.messages.isEmpty(), "an empty pad's key plays nothing and does not pass through", out.describe());
+
+            blank->padDown (0, 1.0f);
+            blank->padUp (0);
+            out = run (*blank, {}, &listener);
+            check (out.messages.isEmpty(), "a click on an empty pad plays nothing", out.describe());
+
+            setParam (*blank, ChordParams::key, 2.0f);   // D major
+            blank->suggestTiles();
+            check (blank->getPadName (tileA) == "D" && ! blank->isFilled (0), "Suggest fills the buffer, not the pads");
+
+            blank->dropSlot (tileA, 0);
+            out = run (*blank, { { 0, on (36) } }, &listener);
+            check (blank->getPadName (0) == "D" && list (out.notesOn()) == "62 66 69",
+                   "a tile dropped on an empty pad fills it, and the key plays it", out.describe());
+            run (*blank, { { 0, off (36) } }, &listener);
+        }
+
+        auto processor = fresh();
+
+        processor->clearSlot (tileA);
         processor->padDown (tileA, 1.0f);
         auto out = run (*processor, {}, &listener);
         check (out.messages.isEmpty(), "an empty tile plays nothing", out.describe());
@@ -355,22 +399,27 @@ namespace
         processor->dropSlot (0, 1);
         check (processor->getPadName (0) == "Dm" && processor->getPadName (1) == "F", "a pad dropped on a pad swaps");
 
-        // Tile onto an empty tile: moved. An empty tile dragged nowhere does nothing.
+        // Tile onto tile: swapped; onto an empty tile: moved. An empty tile drops nothing.
         processor->dropSlot (tileA, tileB);
-        check (! processor->isFilled (tileA) && processor->getPadName (tileB) == "F", "a tile dropped on an empty tile moves");
-        processor->dropSlot (tileA, 5);
+        check (processor->getPadName (tileA) == "Dm" && processor->getPadName (tileB) == "F", "a tile dropped on a tile swaps");
+        processor->clearSlot (tileA);
+        processor->dropSlot (tileB, tileA);
+        check (processor->getPadName (tileA) == "F" && ! processor->isFilled (tileB), "a tile dropped on an empty tile moves");
+        processor->dropSlot (tileB, 5);
         check (processor->getPadName (5) == "Am", "an empty tile drops nothing");
 
-        // Suggest refills pads, not tiles.
-        processor->suggestPads();
-        check (processor->getPadName (1) == "Dm" && processor->getPadName (tileB) == "F", "Suggest keeps the tiles");
+        // Suggest refills the buffer and leaves the pads.
+        processor->suggestTiles();
+        check (processor->getPadName (1) == "F" && processor->getPadName (tileA) == "C"
+                   && processor->getPadName (tileB) == "Dm",
+               "Suggest refills the buffer and keeps the pads");
 
-        processor->clearTile (tileB);
-        check (! processor->isFilled (tileB), "Clear Tile empties it");
-        processor->clearTile (3);
-        check (processor->isFilled (3), "a pad cannot be cleared");
+        // Clear Pad.
+        processor->clearSlot (3);
+        out = run (*processor, { { 0, on (39) }, { 5, off (39) } }, &listener);
+        check (! processor->isFilled (3) && out.messages.isEmpty(), "a cleared pad is silent", out.describe());
 
-        check (listener.stillSounding() == 0 && listener.strayOffs == 0, "nothing left sounding after the tiles");
+        check (listener.stillSounding() == 0 && listener.strayOffs == 0, "nothing left sounding after the buffer");
     }
 
     void checkStateRoundTrip()
@@ -384,7 +433,9 @@ namespace
         original->setPad (3, chord (5, "maj7sus2", 2, -1));
         original->setPad (15, chord (11, "13", 3, 2));
         original->setSelectedPad (9);
-        original->setPad (ChordParams::numPads + 2, chord (2, "m9", 1, 1));   // tile C filled, the others empty
+        original->clearSlot (7);                                               // an empty pad
+        original->setPad (ChordParams::numPads + 2, chord (2, "m9", 1, 1));   // tile C changed
+        original->clearSlot (ChordParams::numPads + 5);                        // tile F empty
 
         juce::MemoryBlock state;
         original->getStateInformation (state);
@@ -392,19 +443,38 @@ namespace
         auto restored = fresh();
         restored->setStateInformation (state.getData(), (int) state.getSize());
 
-        bool samePads = true;
-        for (int pad = 0; pad < ChordParams::numPads; ++pad)
-            samePads = samePads && restored->getPad (pad) == original->getPad (pad);
+        const auto same = [&] (int first, int last)
+        {
+            for (int slot = first; slot < last; ++slot)
+                if (restored->isFilled (slot) != original->isFilled (slot)
+                    || (original->isFilled (slot) && ! (restored->getPad (slot) == original->getPad (slot))))
+                    return false;
+            return true;
+        };
 
-        check (samePads, "every pad survives the round trip");
+        check (same (0, ChordParams::numPads) && ! restored->isFilled (7), "every pad survives the round trip, empty ones too");
+        check (same (ChordParams::numPads, ChordParams::numSlots) && ! restored->isFilled (ChordParams::numPads + 5),
+               "the buffer survives, empty tiles too");
 
-        bool sameTiles = true;
-        for (int slot = ChordParams::numPads; slot < ChordParams::numSlots; ++slot)
-            sameTiles = sameTiles && restored->isFilled (slot) == original->isFilled (slot)
-                     && (! original->isFilled (slot) || restored->getPad (slot) == original->getPad (slot));
-        check (sameTiles && restored->isFilled (ChordParams::numPads + 2), "the tiles survive, empty ones too");
+        // A session from 0.2 had eight tiles: they load into A-H, I-P stay empty.
+        {
+            auto tree = juce::ValueTree::fromXml (*juce::AudioProcessor::getXmlFromBinary (state.getData(), (int) state.getSize()));
+            auto tiles = tree.getChildWithName (ChordParams::tilesType);
+            while (tiles.getNumChildren() > 8)
+                tiles.removeChild (8, nullptr);
 
-        // A session saved before tiles existed restores with them empty.
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*tree.createXml(), old);
+
+            auto older = fresh();
+            older->setStateInformation (old.getData(), (int) old.getSize());
+            check (older->getPad (ChordParams::numPads + 2) == original->getPad (ChordParams::numPads + 2)
+                       && ! older->isFilled (ChordParams::numPads + 8) && ! older->isFilled (ChordParams::numSlots - 1),
+                   "a 0.2 session's eight tiles load into A-H");
+        }
+
+        // A session from 0.1, before tiles: the buffer comes back empty, not
+        // holding this instance's suggestion.
         {
             auto tree = juce::ValueTree::fromXml (*juce::AudioProcessor::getXmlFromBinary (state.getData(), (int) state.getSize()));
             tree.removeChild (tree.getChildWithName (ChordParams::tilesType), nullptr);
@@ -412,7 +482,6 @@ namespace
             juce::AudioProcessor::copyXmlToBinary (*tree.createXml(), old);
 
             auto older = fresh();
-            older->dropSlot (0, ChordParams::numPads);
             older->setStateInformation (old.getData(), (int) old.getSize());
             check (! older->isFilled (ChordParams::numPads), "an old session's tiles come back empty");
         }
@@ -463,27 +532,33 @@ int main (int argc, char** argv)
     checkNothingHangs();
     std::printf ("Thru and the panel...\n");
     checkThruAndPanel();
-    std::printf ("Tiles...\n");
-    checkTiles();
+    std::printf ("Buffer...\n");
+    checkBuffer();
     std::printf ("Session round trip...\n");
     checkStateRoundTrip();
 
-    // The panel: C major, the IV turned into the Fmaj7sus2 from the request,
-    // held, so the pad and the display's keyboards are lit.
+    // The panel: C major suggested into the buffer, a progression built on
+    // the pads from it - with the Fmaj7sus2 from the request, held, so the
+    // pad and the display's keyboards are lit - and the rest of the pads
+    // still empty.
     {
-        auto processor = fresh();
-        processor->setPad (11, chord (5, "maj7sus2"));
-        processor->setSelectedPad (3);
+        auto processor = fresh (false);
+        const auto tile = [] (int letter) { return ChordParams::numPads + letter; };
 
-        // Three tiles filled, the rest showing what they are for.
-        processor->setPad (ChordParams::numPads + 0, chord (5, "maj7sus2"));
-        processor->setPad (ChordParams::numPads + 1, chord (9, "m9"));
-        processor->setPad (ChordParams::numPads + 3, chord (7, "7sus4", 1));
+        processor->dropSlot (tile (0), 0);    // C
+        processor->dropSlot (tile (5), 1);    // Am
+        processor->dropSlot (tile (3), 2);    // F
+        processor->dropSlot (tile (4), 3);    // G
+        processor->setPad (4, chord (5, "maj7sus2"));
+        processor->dropSlot (tile (9), 8);    // Dm7
+        processor->dropSlot (tile (12), 9);   // G7
+        processor->dropSlot (tile (8), 10);   // Cmaj7
+        processor->setSelectedPad (4);
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditorAndMakeActive());
         pump (50);
 
-        run (*processor, { { 0, on (36 + 11, 110) } });
+        run (*processor, { { 0, on (36 + 4, 110) } });
         pump (60);
 
         const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 2.0f);

@@ -23,13 +23,14 @@
 //
 //  Transport stop and All Notes Off release every pad.
 //
-//  Beside the sixteen pads sit eight tiles: a shelf for chords, filled by
-//  dragging a pad onto it and emptied back onto pads the same way. A tile
-//  plays when clicked, so it can be auditioned, but never from a key. Pads and
-//  tiles share one numbering, "slots": 0-15 the pads, 16-23 the tiles; a pad
-//  always holds a chord, a tile may be empty.
+//  Above the sixteen pads sits a buffer of sixteen tiles. Suggest fills the
+//  buffer, never the pads; chords reach the pads by being dragged there, so
+//  the pads hold only what was chosen for them. A tile plays when clicked, so
+//  it can be auditioned, but never from a key. Pads and tiles share one
+//  numbering, "slots": 0-15 the pads, 16-31 the tiles. Either may be empty; an
+//  empty pad's key plays nothing.
 //
-//  The pads themselves live on the message thread (setPad, suggestPads) and
+//  The pads themselves live on the message thread (setPad, suggestTiles) and
 //  reach the audio thread as one packed atomic word per pad - see PadChord.h.
 //  Clicks on the panel come in through a lock-free FIFO and play at the start
 //  of the next block.
@@ -84,16 +85,16 @@ public:
     Theory::PadChord getPad (int slot) const;
     void setPad (int slot, const Theory::PadChord&);
 
-    /** Pads are always filled; a tile may be empty. */
     bool isFilled (int slot) const;
-    void clearTile (int slot);
+    void clearSlot (int slot);
 
     /** Drag and drop: a pad dropped on a pad, or a tile on a tile, swaps the
         two; across the two kinds it copies. */
     void dropSlot (int source, int target);
 
-    /** Refills all sixteen pads from the current key, scale and style. */
-    void suggestPads();
+    /** Refills the sixteen buffer tiles from the current key, scale and
+        style. The pads are left alone. */
+    void suggestTiles();
 
     int getStyle() const noexcept { return style; }
     void setStyle (int newStyle);
@@ -106,7 +107,7 @@ public:
     int getTriggerNote() const;
     int getOctaveBase() const;
 
-    /** "Fmaj7sus2", spelt in the current key; empty for an empty tile. */
+    /** "Fmaj7sus2", spelt in the current key; empty for an empty slot. */
     juce::String getPadName (int slot) const;
     /** "IV" - empty if the root is not in the key. */
     juce::String getPadNumeral (int slot) const;

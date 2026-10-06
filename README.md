@@ -3,11 +3,12 @@
 A 16-pad chord generator for macOS: an AU MIDI effect (aumi/Chbx/Tzor) and a
 standalone app, built with JUCE 9 on the panel of its sibling Kitbox.
 
-Pick a key and a scale, press **Suggest**, and the sixteen pads fill with
-chords that fit, from plain triads and sevenths to sus and colour chords. Then
-change any pad by hand, down to a Fmaj7sus2 in second inversion.
+Pick a key and a scale and press **Suggest**. Sixteen buffer tiles fill with
+chords that fit, from plain triads and sevenths to sus and colour chords.
+Drag the ones you want onto the sixteen playable pads, then change any pad by
+hand, down to a Fmaj7sus2 in second inversion.
 
-<img src="screenshot.png" width="700" alt="Chordbox: C major, three chords parked on tiles, the IV in the lower row turned into Fmaj7sus2">
+<img src="screenshot.png" width="700" alt="Chordbox: C major suggested into the grey buffer, a progression dragged onto the pads below, Fmaj7sus2 held">
 
 ## In Logic
 
@@ -25,35 +26,39 @@ everything that is not a note.
     scale on that root.
   - **All Chords:** every chord on every root.
   - **Inversion** and **Octave**.
+  - **Clear Pad**.
 - Each pad shows its chord, its degree in the key (`IV`, `vi`, `vii°`) and
   the note that plays it.
+- An empty pad is drawn as a dashed outline that reads "DROP A CHORD".
 - The display shows the chord last played or selected: its name, its notes
   and a keyboard with those notes marked.
   - To its left, set apart, one octave shows the key: the scale's notes are
     marked and named as the key spells them, and the root is brightest.
 
-## Tiles
+## Buffer
 
-Above the pads sits a shelf of eight tiles, A-H, for parking chords.
+The two grey rows above the pads are the buffer: sixteen tiles, A-P.
+**Suggest** fills them and never touches the pads. The pads start empty and
+hold only what you put on them.
 
-- **Drag a pad onto a tile** to copy its chord there.
 - **Drag a tile onto a pad** to copy the chord onto it. The tile keeps it, so
   one tile can fill several pads.
-- **Drag a pad onto a pad** to swap the two. A tile dropped on a tile works
-  the same way, and moves onto an empty one.
+- **Drag a pad onto a tile** to copy its chord there, for example to keep it
+  across the next Suggest.
+- **Drag a pad onto a pad** to swap the two, or move it if the other pad is
+  empty. Tiles do the same among themselves.
 - **Click a tile** to hear its chord. Keys never play tiles.
 - **Right-click a tile** and choose Clear Tile to empty it.
-- **Suggest** refills the pads but leaves the tiles alone. Park a chord on a
-  tile, suggest another key, and drag it back.
-- The tiles are saved with the session.
+- **An empty pad** plays nothing. Its key does not pass through either.
+- The buffer and the pads are saved with the session.
 
 ## Settings
 
 | | |
 |---|---|
 | **Key**, **Scale** | Major, Natural/Harmonic/Melodic Minor, the modes, Major/Minor Pentatonic. Chord names are spelt in the key (Bb in F major, never A#). |
-| **Style** | What **Suggest** fills the pads with. Row 1 is degrees I-VII plus the octave, row 2 is the same degrees again. **Triads + 7ths**: C Dm Em F G Am Bdim C over Cmaj7 … Bm7b5. **Sus**: sus2/sus4, then 7sus4/maj7sus2. **Colour**: add9/madd9, then maj9/9/m9/m11 … |
-| **Suggest** | Refills all sixteen pads. Changing Key or Scale alone does not, so hand-picked pads are never lost to a stray click. |
+| **Style** | What **Suggest** fills the buffer with. Row 1 is degrees I-VII plus the octave, row 2 is the same degrees again. **Triads + 7ths**: C Dm Em F G Am Bdim C over Cmaj7 … Bm7b5. **Sus**: sus2/sus4, then 7sus4/maj7sus2. **Colour**: add9/madd9, then maj9/9/m9/m11 … |
+| **Suggest** | Refills the sixteen buffer tiles. The pads are never touched. |
 | **Trigger** | The note that plays pad 1 (default C1). |
 | **Octave** | The C the chords are built from (default C3). |
 | **Velocity** | As played, or fixed at 100. |
@@ -93,7 +98,9 @@ The build runs two checks:
   each chord contains, the suggestions for every key, scale and style, the
   spelling, and the inversions.
 - `EditorShot` plays the processor with MIDI and checks that nothing hangs.
-  It also round-trips the session and renders `build/shots/chordbox.png`.
+  It also checks the buffer's copy and swap rules and the empty pads,
+  round-trips the session (sessions from 0.1 and 0.2 included), and renders
+  `build/shots/chordbox.png`.
 
 ## Licence
 

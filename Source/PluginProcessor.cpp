@@ -60,11 +60,11 @@ ChordboxProcessor::ChordboxProcessor()
     velocityParam = parameters.getRawParameterValue (ChordParams::velocity);
     thruParam     = parameters.getRawParameterValue (ChordParams::thru);
 
-    // A fresh instance starts with something to play: C major, triads over
-    // sevenths. The tiles start empty.
+    // A fresh instance starts with chords to choose from - C major, triads
+    // over sevenths - in the buffer, and empty pads to put them on.
     const auto suggested = Theory::suggest (0, 0, 0);
-    std::copy (suggested.begin(), suggested.end(), pads.begin());
-    std::fill (filled.begin(), filled.begin() + ChordParams::numPads, true);
+    std::copy (suggested.begin(), suggested.end(), pads.begin() + ChordParams::numPads);
+    std::fill (filled.begin() + ChordParams::numPads, filled.end(), true);
 
     for (int slot = 0; slot < ChordParams::numSlots; ++slot)
         publish (slot);
@@ -103,9 +103,9 @@ void ChordboxProcessor::setPad (int slot, const Theory::PadChord& chord)
     sendChangeMessage();
 }
 
-void ChordboxProcessor::clearTile (int slot)
+void ChordboxProcessor::clearSlot (int slot)
 {
-    if (! ChordParams::isTile (slot) || slot >= ChordParams::numSlots)
+    if (slot < 0 || slot >= ChordParams::numSlots)
         return;
 
     {
@@ -124,7 +124,7 @@ void ChordboxProcessor::dropSlot (int source, int target)
 
     if (ChordParams::isTile (source) == ChordParams::isTile (target))
     {
-        // Same kind: swap. A tile dropped on an empty tile simply moves there.
+        // Same kind: swap. Dropped on an empty one, it simply moves there.
         {
             const juce::ScopedLock lock (padLock);
             std::swap (pads[(size_t) source], pads[(size_t) target]);
@@ -142,8 +142,8 @@ void ChordboxProcessor::dropSlot (int source, int target)
 
 void ChordboxProcessor::publish (int slot)
 {
-    // An empty tile publishes a chord of no notes, which the audio thread plays
-    // as nothing.
+    // An empty slot publishes a chord of no notes, which the audio thread
+    // plays as nothing.
     packedPads[(size_t) slot].store (isFilled (slot) ? Theory::packNotes (getPad (slot).offsets()) : 0);
 }
 
@@ -152,17 +152,18 @@ void ChordboxProcessor::setStyle (int newStyle)
     style = juce::jlimit (0, Theory::numStyles() - 1, newStyle);
 }
 
-void ChordboxProcessor::suggestPads()
+void ChordboxProcessor::suggestTiles()
 {
     const auto suggested = Theory::suggest (getKey(), getScale(), style);
 
     {
         const juce::ScopedLock lock (padLock);
-        std::copy (suggested.begin(), suggested.end(), pads.begin());
+        std::copy (suggested.begin(), suggested.end(), pads.begin() + ChordParams::numPads);
+        std::fill (filled.begin() + ChordParams::numPads, filled.end(), true);
     }
 
-    for (int pad = 0; pad < ChordParams::numPads; ++pad)
-        publish (pad);
+    for (int tile = ChordParams::numPads; tile < ChordParams::numSlots; ++tile)
+        publish (tile);
 
     sendChangeMessage();
 }
@@ -243,7 +244,7 @@ void ChordboxProcessor::padOn (int pad, int velocity, int channel, juce::MidiBuf
     const auto count = Theory::unpackNotes (packedPads[(size_t) pad].load(), offsets);
 
     if (count == 0)
-        return;   // an empty tile
+        return;   // an empty pad or tile
     const auto base = ChordParams::octaveBase ((int) octaveParam->load());
 
     auto& voice = sounding[(size_t) pad];
@@ -448,7 +449,7 @@ void ChordboxProcessor::slotsFromTree (const juce::ValueTree& tree, int first, i
     {
         const auto child = tree.getChild (i);
         const auto slot = first + i;
-        const auto empty = ChordParams::isTile (slot) && (bool) child.getProperty (ChordParams::propEmpty, false);
+        const auto empty = (bool) child.getProperty (ChordParams::propEmpty, false);
 
         Theory::PadChord chord;
         chord.root = juce::jlimit (0, 11, (int) child.getProperty (ChordParams::propRoot, 0));
@@ -501,10 +502,11 @@ void ChordboxProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (const auto padsTree = state.getChildWithName (ChordParams::padsType); padsTree.isValid())
         slotsFromTree (padsTree, 0, ChordParams::numPads);
 
-    // A session from before the tiles has none: they are emptied, not left
-    // holding whatever this instance had.
+    // A session from before the tiles has none, and one from 0.2 has eight:
+    // the tiles it does not mention are emptied, not left holding whatever
+    // this instance had.
     for (int tile = ChordParams::numPads; tile < ChordParams::numSlots; ++tile)
-        clearTile (tile);
+        clearSlot (tile);
 
     if (const auto tilesTree = state.getChildWithName (ChordParams::tilesType); tilesTree.isValid())
         slotsFromTree (tilesTree, ChordParams::numPads, ChordParams::numTiles);
