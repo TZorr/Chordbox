@@ -1,0 +1,100 @@
+# Chordbox
+
+A 16-pad chord generator for macOS: an AU MIDI effect (aumi/Chbx/Tzor) and a
+standalone app, built with JUCE 9 on the panel of its sibling Kitbox.
+
+Pick a key and a scale, press **Suggest**, and the sixteen pads fill with
+chords that fit, from plain triads and sevenths to sus and colour chords. Then
+change any pad by hand, down to a Fmaj7sus2 in second inversion.
+
+<img src="screenshot.png" width="700" alt="Chordbox: C major, three chords parked on tiles, the IV in the lower row turned into Fmaj7sus2">
+
+## In Logic
+
+Chordbox makes no sound itself. Put it in a software instrument track's
+**MIDI FX** slot, above the instrument. Keys C1-D#2 play pads 1-16. Every
+other note passes through to the instrument while Thru is on, and so does
+everything that is not a note.
+
+## Pads
+
+- **Click and hold** plays the chord. The higher up the pad you click, the
+  louder it plays, as in Kitbox.
+- **Right-click** chooses the pad's chord:
+  - **In the key:** one submenu per degree, holding the chords that fit the
+    scale on that root.
+  - **All Chords:** every chord on every root.
+  - **Inversion** and **Octave**.
+- Each pad shows its chord, its degree in the key (`IV`, `vi`, `vii°`) and
+  the note that plays it.
+- The display shows the chord last played or selected: its name, its notes
+  and a keyboard with those notes marked.
+  - To its left, set apart, one octave shows the key: the scale's notes are
+    marked and named as the key spells them, and the root is brightest.
+
+## Tiles
+
+Above the pads sits a shelf of eight tiles, A-H, for parking chords.
+
+- **Drag a pad onto a tile** to copy its chord there.
+- **Drag a tile onto a pad** to copy the chord onto it. The tile keeps it, so
+  one tile can fill several pads.
+- **Drag a pad onto a pad** to swap the two. A tile dropped on a tile works
+  the same way, and moves onto an empty one.
+- **Click a tile** to hear its chord. Keys never play tiles.
+- **Right-click a tile** and choose Clear Tile to empty it.
+- **Suggest** refills the pads but leaves the tiles alone. Park a chord on a
+  tile, suggest another key, and drag it back.
+- The tiles are saved with the session.
+
+## Settings
+
+| | |
+|---|---|
+| **Key**, **Scale** | Major, Natural/Harmonic/Melodic Minor, the modes, Major/Minor Pentatonic. Chord names are spelt in the key (Bb in F major, never A#). |
+| **Style** | What **Suggest** fills the pads with. Row 1 is degrees I-VII plus the octave, row 2 is the same degrees again. **Triads + 7ths**: C Dm Em F G Am Bdim C over Cmaj7 … Bm7b5. **Sus**: sus2/sus4, then 7sus4/maj7sus2. **Colour**: add9/madd9, then maj9/9/m9/m11 … |
+| **Suggest** | Refills all sixteen pads. Changing Key or Scale alone does not, so hand-picked pads are never lost to a stray click. |
+| **Trigger** | The note that plays pad 1 (default C1). |
+| **Octave** | The C the chords are built from (default C3). |
+| **Velocity** | As played, or fixed at 100. |
+| **Thru** | Pass notes outside the pad range through. |
+
+Notes never hang:
+
+- A pad releases exactly the notes it played, even if it was re-chorded or
+  re-octaved, or Trigger moved, while it was held.
+- When two pads share a note, it stops only when the last of them lets go.
+- Transport stop and All Notes Off release everything.
+
+## Chords
+
+| Family | Chords |
+|---|---|
+| Triads | maj, m, dim, aug |
+| Sus | sus2, sus4, 7sus4, maj7sus2, maj7sus4, 9sus4 |
+| Sixths | 6, m6, 6/9 |
+| Sevenths | maj7, 7, m7, m7b5, mMaj7, maj7#5, dim7 |
+| Colour | add9, madd9, maj9, 9, m9, maj7#11, 11, m11, 13 |
+| Other | 5, quartal |
+
+## Build
+
+```
+Scripts/build.sh      # configure, build, run ChordboxCheck and EditorShot
+Scripts/install.sh    # AU to ~/Library/Audio/Plug-Ins/Components, app to /Applications, auval
+Scripts/package.sh    # an installer .pkg for /Library
+```
+
+You need JUCE at `~/JUCE` (or `-DJUCE_PATH=...`), CMake and Ninja.
+
+The build runs two checks:
+
+- `ChordboxCheck` tests the theory engine against answers known on paper: what
+  each chord contains, the suggestions for every key, scale and style, the
+  spelling, and the inversions.
+- `EditorShot` plays the processor with MIDI and checks that nothing hangs.
+  It also round-trips the session and renders `build/shots/chordbox.png`.
+
+## Licence
+
+AGPLv3, because JUCE's free tier is. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
