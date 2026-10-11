@@ -32,4 +32,4 @@ echo
 echo
 echo "Built:"
 ls -d "$BUILD_DIR/Chordbox_artefacts/Release/"*/*.{component,app} 2>/dev/null || true
-echo "Panel: $BUILD_DIR/shots/chordbox.png"
+echo "Panel: $BUILD_DIR/shots/chordbox.png (and chordbox-dark.png)"

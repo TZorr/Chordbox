@@ -116,7 +116,7 @@ The build runs two checks:
 - `EditorShot` plays the processor with MIDI and checks that nothing hangs.
   It also checks the buffer's copy and swap rules and the empty pads,
   round-trips the session (sessions from 0.1 and 0.2 included), and renders
-  `build/shots/chordbox.png`.
+  `build/shots/chordbox.png` (and `chordbox-dark.png`).
 
 ## Licence
 

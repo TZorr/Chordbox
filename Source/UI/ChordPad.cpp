@@ -131,7 +131,7 @@ void ChordPad::paint (juce::Graphics& g)
     }
     else
     {
-        auto fill = tile ? (isMouseOver() ? Palette::buttonHover : Palette::button)
+        auto fill = tile ? (isMouseOver() ? Palette::tileHover : Palette::tile)
                          : (isMouseOver() ? Palette::padHover : Palette::pad);
         fill = fill.interpolatedWith (tile ? Palette::accent : groupColour, flash * 0.85f);
 

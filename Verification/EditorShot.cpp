@@ -35,6 +35,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "PluginEditor.h"
+#include "UI/Palette.h"
 #include "PluginProcessor.h"
 #include "Theory/ChordTypes.h"
 
@@ -708,9 +709,21 @@ int main (int argc, char** argv)
         run (*processor, { { 0, on (36 + 4, 110) } });
         pump (60);
 
+        // Whatever theme this Mac's user picked, the reference shot is light;
+        // the dark one beside it. Palette::setDark, not the button, so the
+        // user's setting is left alone.
+        Palette::setDark (false);
+        editor->repaint();
         const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 2.0f);
         const auto file = outputDirectory.getChildFile ("chordbox.png");
         check (writePng (image, file), "the panel renders to " + file.getFullPathName());
+
+        Palette::setDark (true);
+        editor->repaint();
+        check (writePng (editor->createComponentSnapshot (editor->getLocalBounds(), true, 2.0f),
+                         outputDirectory.getChildFile ("chordbox-dark.png")), "the panel renders dark");
+        Palette::setDark (false);
+        editor->repaint();
 
         processor->editorBeingDeleted (editor.get());
         editor.reset();

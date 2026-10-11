@@ -9,6 +9,22 @@
 
 namespace
 {
+    /** The panel's theme is the user's, not the session's: it lives in
+        ~/Library/Application Support/Chordbox/Chordbox.settings, shared by
+        every instance and every project, and never travels with a session. */
+    std::unique_ptr<juce::PropertiesFile> openSettings()
+    {
+        juce::PropertiesFile::Options options;
+        options.applicationName     = JucePlugin_Name;
+        options.filenameSuffix      = ".settings";
+        options.folderName          = JucePlugin_Name;
+        options.osxLibrarySubFolder = "Application Support";
+        options.getDefaultFile().getParentDirectory().createDirectory();
+        return std::make_unique<juce::PropertiesFile> (options);
+    }
+
+    constexpr const char* darkModeKey = "darkMode";
+
     constexpr int margin = 16;
     constexpr int sectionGap = 10;
     constexpr int sectionPadding = 8;
@@ -64,6 +80,14 @@ ChordboxEditor::ChordboxEditor (ChordboxProcessor& p)
     addAndMakeVisible (suggestButton);
     addAndMakeVisible (display);
 
+    // The saved theme first, so the first paint is already the right one.
+    Palette::setDark (openSettings()->getBoolValue (darkModeKey, false));
+    shownDark = Palette::dark;
+    darkButton.setToggleState (Palette::dark, juce::dontSendNotification);
+    darkButton.setTooltip ("Dark panel on / off");
+    darkButton.onClick = [this] { setDarkMode (darkButton.getToggleState()); };
+    addAndMakeVisible (darkButton);
+
     for (int pad = 0; pad < ChordParams::numPads; ++pad)
     {
         auto button = std::make_unique<ChordPad> (chordbox, pad);
@@ -117,8 +141,31 @@ void ChordboxEditor::changeListenerCallback (juce::ChangeBroadcaster*)
     style.refresh();
 }
 
+void ChordboxEditor::setDarkMode (bool shouldBeDark)
+{
+    Palette::setDark (shouldBeDark);
+
+    if (auto settings = openSettings())
+    {
+        settings->setValue (darkModeKey, shouldBeDark);
+        settings->saveIfNeeded();
+    }
+
+    shownDark = shouldBeDark;
+    darkButton.setToggleState (shouldBeDark, juce::dontSendNotification);
+    repaint();
+}
+
 void ChordboxEditor::timerCallback()
 {
+    // Another Chordbox window may have switched the theme: it is process-wide.
+    if (shownDark != Palette::dark)
+    {
+        shownDark = Palette::dark;
+        darkButton.setToggleState (shownDark, juce::dontSendNotification);
+        repaint();
+    }
+
     for (auto& pad : pads)
         pad->updateFlash();
 
@@ -146,6 +193,10 @@ void ChordboxEditor::resized()
 
     auto header = area.removeFromTop (86);
     wordmarkArea = header.removeFromLeft (230);
+
+    // Under the wordmark and its subtitle, which end 66 points down.
+    darkButton.setBounds (wordmarkArea.getX(), wordmarkArea.getY() + 68, 52, 17);
+
     header.removeFromLeft (10);
     display.setBounds (header);
 

@@ -31,6 +31,7 @@
 #include "PluginProcessor.h"
 #include "UI/ChordDisplay.h"
 #include "UI/ChordPad.h"
+#include "UI/FlatToggle.h"
 #include "UI/Selector.h"
 
 class ChordboxEditor : public juce::AudioProcessorEditor,
@@ -61,6 +62,7 @@ private:
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
+    void setDarkMode (bool shouldBeDark);
 
     ChordboxProcessor& chordbox;
     int selectedPad = 0;
@@ -70,6 +72,8 @@ private:
 
     Selector key { "Key" }, scale { "Scale" }, style { "Style" };
     FlatButton suggestButton { "Suggest" };
+    FlatToggle darkButton { "Dark" };
+    bool shownDark = false;
     Selector trigger { "Trigger" }, octave { "Octave" }, velocity { "Velocity" }, thru { "Thru" };
 
     juce::Rectangle<int> wordmarkArea, scaleSection, playSection;
