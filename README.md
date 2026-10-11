@@ -8,7 +8,22 @@ chords that fit, from plain triads and sevenths to sus and colour chords.
 Drag the ones you want onto the sixteen playable pads, then change any pad by
 hand, down to a Fmaj7sus2 in second inversion.
 
-<img src="screenshot.png" width="700" alt="Chordbox: C major suggested into the grey buffer, a progression dragged onto the pads below, Fmaj7sus2 held">
+Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [FMBox](https://github.com/TZorr/FMBox) (eight-sound FM drum synth), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis).
+
+<img src="screenshot.png" width="700" alt="Chordbox in Logic Pro: E major suggested into the grey buffer, a progression dragged onto the pads below">
+
+<img src="screenshot-dark.png" width="700" alt="Chordbox in Logic Pro with the dark panel">
+
+**Dark** under the wordmark switches the panel to dark; the choice is yours,
+not the session's - every Chordbox window and project opens the way you left it.
+
+## Install
+
+Download `Chordbox.0.6.2.pkg` from
+[Releases](https://github.com/TZorr/Chordbox/releases) and run it; the AU goes into `/Library/Audio/Plug-Ins/Components`. Apple Silicon, macOS
+26.5 or later. The installer is unsigned, so Gatekeeper refuses it at first:
+right-click it and choose Open, or allow it under System Settings › Privacy &
+Security.
 
 ## In Logic
 
@@ -121,3 +136,7 @@ The build runs two checks:
 ## Licence
 
 AGPLv3, because JUCE's free tier is. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Contact
+
+T'Zorr - <TZorr@gmx.de>
