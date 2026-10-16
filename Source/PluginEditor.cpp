@@ -87,6 +87,7 @@ ChordboxEditor::ChordboxEditor (ChordboxProcessor& p)
     darkButton.setTooltip ("Dark panel on / off");
     darkButton.onClick = [this] { setDarkMode (darkButton.getToggleState()); };
     addAndMakeVisible (darkButton);
+    addAndMakeVisible (presetButton);
 
     for (int pad = 0; pad < ChordParams::numPads; ++pad)
     {
@@ -196,6 +197,7 @@ void ChordboxEditor::resized()
 
     // Under the wordmark and its subtitle, which end 66 points down.
     darkButton.setBounds (wordmarkArea.getX(), wordmarkArea.getY() + 68, 52, 17);
+    presetButton.setBounds (darkButton.getRight() + 6, darkButton.getY(), 64, 17);
 
     header.removeFromLeft (10);
     display.setBounds (header);

@@ -25,7 +25,9 @@
 //    each note its own - and still no note-off before its note-on, no note
 //    left hanging, shared notes, transport stop and All Notes Off included;
 //  - the pads, buffer, key, style and selection survive a session round trip,
-//    and sessions from 0.1 and 0.2 load.
+//    and sessions from 0.1 and 0.2 load;
+//  - presets: the preset menu's .chordbox brings back pads and key, is
+//    readable XML, and another plugin's preset and an .aupreset are refused.
 //
 //  The render is the other half: look at the PNG after every layout change.
 //
@@ -35,6 +37,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "PluginEditor.h"
+#include "Engine/PresetFile.h"
 #include "UI/Palette.h"
 #include "PluginProcessor.h"
 #include "Theory/ChordTypes.h"
@@ -652,6 +655,54 @@ namespace
     }
 }
 
+namespace
+{
+    /** The preset menu's own file: saves and loads pads and key, is readable
+        XML naming this plugin, and refuses another plugin's preset and an
+        .aupreset. */
+    void checkPresets()
+    {
+        const auto folder = juce::File::createTempFile ("presets");
+        folder.createDirectory();
+        const auto file = folder.getChildFile (juce::String ("Test") + PresetFile::extension);
+        const auto getParam = [] (ChordboxProcessor& processor, const char* id)
+        {
+            return processor.parameters.getRawParameterValue (id)->load();
+        };
+
+        auto original = fresh();
+        setParam (*original, ChordParams::key, 5.0f);
+        original->setPad (3, chord (5, "maj7sus2", 2, -1));
+        check (PresetButton::save (*original, file).wasOk(), "a preset saves");
+
+        const auto text = file.loadFileAsString();
+        const auto xml = juce::XmlDocument::parse (text);
+        check (juce::String (PresetFile::extension) == ".chordbox" && xml != nullptr && xml->hasTagName ("TZorrPreset")
+                   && xml->getStringAttribute ("plugin") == "Chbx" && xml->getNumChildElements() == 1,
+               "the preset is readable XML naming Chbx", text.substring (0, 120));
+
+        auto loaded = fresh();
+        check (PresetButton::load (*loaded, file).wasOk(), "a preset loads");
+        check (std::abs (getParam (*loaded, ChordParams::key) - 5.0f) < 0.01f && loaded->isFilled (3)
+                   && loaded->getPad (3) == original->getPad (3),
+               "a preset brings back the key and the pads");
+
+        const auto foreign = folder.getChildFile (juce::String ("Foreign") + PresetFile::extension);
+        foreign.replaceWithText (text.replace ("plugin=\"Chbx\"", "plugin=\"Tnbx\""));
+        auto untouched = fresh();
+        const auto before = getParam (*untouched, ChordParams::key);
+        check (PresetButton::load (*untouched, foreign).failed() && getParam (*untouched, ChordParams::key) == before,
+               "another plugin's preset is refused");
+
+        const auto auPreset = folder.getChildFile ("Logic.aupreset");
+        auPreset.replaceWithText ("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict/></plist>");
+        check (PresetButton::load (*untouched, auPreset).failed() && getParam (*untouched, ChordParams::key) == before,
+               "an .aupreset is refused");
+
+        folder.deleteRecursively();
+    }
+}
+
 int main (int argc, char** argv)
 {
     const juce::ScopedJuceInitialiser_GUI juceInitialiser;
@@ -677,6 +728,8 @@ int main (int argc, char** argv)
     checkHumanize();
     std::printf ("Session round trip...\n");
     checkStateRoundTrip();
+    std::printf ("Presets...\n");
+    checkPresets();
 
     // The panel: C major (Borrowed) suggested into the buffer, a progression built on
     // the pads from it - with the Fmaj7sus2 from the request, held, so the

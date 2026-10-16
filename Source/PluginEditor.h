@@ -32,6 +32,7 @@
 #include "UI/ChordDisplay.h"
 #include "UI/ChordPad.h"
 #include "UI/FlatToggle.h"
+#include "UI/PresetButton.h"
 #include "UI/Selector.h"
 
 class ChordboxEditor : public juce::AudioProcessorEditor,
@@ -73,6 +74,7 @@ private:
     Selector key { "Key" }, scale { "Scale" }, style { "Style" };
     FlatButton suggestButton { "Suggest" };
     FlatToggle darkButton { "Dark" };
+    PresetButton presetButton { chordbox };
     bool shownDark = false;
     Selector trigger { "Trigger" }, octave { "Octave" }, velocity { "Velocity" }, thru { "Thru" };
 

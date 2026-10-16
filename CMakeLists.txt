@@ -41,7 +41,7 @@ cmake_minimum_required(VERSION 3.22)
 # 0.6.0: Borrowed and Secondary Dominants; chord tones spelt from the root.
 # 0.6.1: RND on by default (a parameter default changed).
 # 0.6.2: a Dark panel, as on Kitbox, switched under the wordmark and kept per user.
-project(Chordbox VERSION 0.6.2)
+project(Chordbox VERSION 0.7.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -96,17 +96,20 @@ set(CHORDBOX_CORE_SOURCES
 set(CHORDBOX_UI_SOURCES
     Source/UI/Selector.cpp
     Source/UI/ChordPad.cpp
-    Source/UI/ChordDisplay.cpp)
+    Source/UI/ChordDisplay.cpp
+    Source/UI/PresetButton.cpp)
 
 target_sources(Chordbox PRIVATE
     ${CHORDBOX_CORE_SOURCES}
     ${CHORDBOX_UI_SOURCES}
+    Source/Engine/PresetFile.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 
 target_include_directories(Chordbox PRIVATE Source)
 
 target_compile_definitions(Chordbox PUBLIC
+    TZORR_PRESET_EXTENSION=\".chordbox\"
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_REPORT_APP_USAGE=0)

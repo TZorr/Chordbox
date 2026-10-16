@@ -17,6 +17,8 @@ Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbo
 **Dark** under the wordmark switches the panel to dark; the choice is yours,
 not the session's - every Chordbox window and project opens the way you left it.
 
+**PRESETS** beside the Dark switch opens the plugin's own preset menu. It lists `~/Library/Audio/Presets/T'Zorr/Chordbox/`, and each subfolder becomes a submenu. It also has Save Preset…, Load Preset… and Show in Finder. Presets are `.chordbox` files: plain XML that names the plugin and holds its settings, readable in any text editor. Logic keeps its own `.aupreset` settings in its own menu; the two do not mix. A preset holds the pads, the buffer, key, scale, style and the play settings.
+
 ## Install
 
 Download `Chordbox.0.6.2.pkg` from
