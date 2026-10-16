@@ -21,7 +21,7 @@ not the session's - every Chordbox window and project opens the way you left it.
 
 ## Install
 
-Download `Chordbox.0.6.2.pkg` from
+Download `Chordbox.0.7.0.pkg` from
 [Releases](https://github.com/TZorr/Chordbox/releases) and run it; the AU goes into `/Library/Audio/Plug-Ins/Components`. Apple Silicon, macOS
 26.5 or later. The installer is unsigned, so Gatekeeper refuses it at first:
 right-click it and choose Open, or allow it under System Settings › Privacy &
