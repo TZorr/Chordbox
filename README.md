@@ -8,7 +8,7 @@ chords that fit, from plain triads and sevenths to sus and colour chords.
 Drag the ones you want onto the sixteen playable pads, then change any pad by
 hand, down to a Fmaj7sus2 in second inversion.
 
-Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [FMBox](https://github.com/TZorr/FMBox) (eight-sound FM drum synth), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis).
+Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [FMBox](https://github.com/TZorr/FMBox) (eight-sound FM drum synth), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis), [Clearbox](https://github.com/TZorr/Clearbox) (target-curve dynamic EQ).
 
 <img src="screenshot.png" width="700" alt="Chordbox in Logic Pro: E major suggested into the grey buffer, a progression dragged onto the pads below">
 
